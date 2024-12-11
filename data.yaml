@@ -1,0 +1,13 @@
+train: ./train/images
+val: ./valid/images
+test: ./test/images
+
+nc: 6
+names: ['Running', 'Walking', 'laying_down', 'not_defined', 'seated', 'stands']
+
+roboflow:
+  workspace: shaun-0a6wc
+  project: sar-drone
+  version: 1
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/shaun-0a6wc/sar-drone/dataset/1
