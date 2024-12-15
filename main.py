@@ -3,7 +3,7 @@ from ultralytics import YOLO
 from deep_sort_realtime.deepsort_tracker import DeepSort
 
 # Load the trained YOLOv11 model
-model = YOLO("./runs/detect/train6/weights/best.pt")
+model = YOLO("./runs/detect/train3/weights/best.pt")
 
 # Initialize DeepSORT tracker
 tracker = DeepSort(max_age=30, nn_budget=70, nms_max_overlap=1.0)
