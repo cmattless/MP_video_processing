@@ -1,5 +1,5 @@
 # Use a Python base image
-FROM python:3.9-slim
+FROM python:3.10-slim
 
 # Install required system libraries
 RUN apt-get update && apt-get install -y \
@@ -7,6 +7,11 @@ RUN apt-get update && apt-get install -y \
     libsm6 \
     libxext6 \
     && apt-get clean
+
+RUN echo "Checking Python version"
+RUN command -v python3
+
+
 
 # Set the working directory
 WORKDIR /app
