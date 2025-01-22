@@ -2,8 +2,8 @@ from PySide6.QtWidgets import QMainWindow, QLabel, QVBoxLayout, QWidget
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtCore import QTimer
 import cv2
-from core.video_processor import VideoProcessor
-from core.model_processor import YOLODeepSortProcessor
+from ..core.video_processor import VideoProcessor
+from ..core.model_processor import YOLODeepSortProcessor
 
 
 class VideoPlayer(QMainWindow):
