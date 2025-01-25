@@ -1,6 +1,5 @@
 import cv2
 
-
 class VideoProcessor:
     def __init__(self, video_path: str):
         self.cap = cv2.VideoCapture(video_path)

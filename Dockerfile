@@ -6,6 +6,9 @@ RUN apt-get update && apt-get install -y \
     ffmpeg \
     libsm6 \
     libxext6 \
+    libegl1-mesa \
+    libgl1-mesa-glx \
+    libgl1-mesa-dri \
     && apt-get clean
 
 RUN echo "Checking Python version"

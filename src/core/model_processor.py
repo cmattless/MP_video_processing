@@ -1,7 +1,6 @@
 from ultralytics import YOLO
 from deep_sort_realtime.deepsort_tracker import DeepSort
 
-
 class YOLODeepSortProcessor:
     def __init__(self, model_path: str, max_age=30, nn_budget=70, nms_max_overlap=1.0):
         self.model = YOLO(model_path)
