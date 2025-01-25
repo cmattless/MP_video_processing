@@ -2,8 +2,8 @@ from PySide6.QtWidgets import QMainWindow, QLabel, QVBoxLayout, QWidget
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtCore import QTimer
 import cv2
-from src.core.video_processor import VideoProcessor
-from src.core.model_processor import YOLODeepSortProcessor
+from core.video_processor import VideoProcessor
+from core.model_processor import YOLODeepSortProcessor
 
 
 class VideoPlayer(QMainWindow):
@@ -13,8 +13,6 @@ class VideoPlayer(QMainWindow):
         self.setCentralWidget(self.central_widget)
 
         self.layout = QVBoxLayout(self.central_widget)
-
-  
         self.video_label = QLabel()
         self.video_label.setScaledContents(True)  # Scale the video to fit the label
         self.layout.addWidget(self.video_label)
@@ -24,6 +22,7 @@ class VideoPlayer(QMainWindow):
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_frame)
+        self.timer.start(33)  # 30 FPS (1000ms / 30 ≈ 33ms)
 
     def draw_bounding_boxes(self, img, tracked_objects):
         """Draw bounding boxes and IDs on the image."""
