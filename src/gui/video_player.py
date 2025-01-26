@@ -22,7 +22,7 @@ class VideoPlayer(QMainWindow):
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_frame)
-        self.timer.start(33)  # 30 FPS (1000ms / 30 ≈ 33ms)
+        self.timer.start(33)
 
     def draw_bounding_boxes(self, img, tracked_objects):
         """Draw bounding boxes and IDs on the image."""

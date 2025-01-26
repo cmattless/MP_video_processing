@@ -41,7 +41,7 @@ class MainApp(QMainWindow):
         menubar = QMenuBar()
         file_menu = menubar.addMenu("File")
         openAction = QAction("Open", self)
-        openAction.triggered.connect(self.open_file)
+        openAction.triggered.connect(self.__open_file)
         file_menu.addAction(openAction)
         top_layout.addWidget(menubar, 1, alignment=Qt.AlignTop)
 
@@ -76,13 +76,12 @@ class MainApp(QMainWindow):
         self.metadata_frame_layout.addWidget(self.meta_label)
         self.main_layout.addWidget(self.metadata_frame, 1)
 
-        # Instantiate the dialog handler
         self.dialog_handler = DialogHandler(self)
         self.dialog_handler.signals.file_path_response.connect(
-            self.on_file_path_selected
+            self.__on_file_path_selected
         )
 
-    def open_file(self) -> None:
+    def __open_file(self) -> None:
         """
         Trigger a file selection dialog to open a video file. The actual file path
         is returned asynchronously through the 'on_file_path_selected' slot.
@@ -94,7 +93,7 @@ class MainApp(QMainWindow):
         )
 
     @Slot(str)
-    def on_file_path_selected(self, file_path: str) -> None:
+    def __on_file_path_selected(self, file_path: str) -> None:
         """
         Slot to handle the file path selected by the user. Instantiates and displays
         a VideoPlayer if a valid file path is returned.
