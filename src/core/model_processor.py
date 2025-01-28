@@ -20,19 +20,17 @@ class Model:
                 x1, y1, x2, y2 = box.cpu().numpy()  # Bounding box coordinates
                 width, height = x2 - x1, y2 - y1
                 if (
-                    confidence > 0.5 and width > 0 and height > 0
+                    confidence > 0.3 and width > 0 and height > 0
                 ):  # Filter low-confidence and invalid detections
                     bbs.append(
                         ([x1, y1, width, height], confidence.item(), int(cls.item()))
                     )
 
-        # Update tracker
         tracked_objects = self.tracker.update_tracks(bbs, frame=frame)
 
-        # Return tracked objects
         return [
             {
-                "bbox": track.to_ltwh(),  # Convert bounding box to [left, top, width, height]
+                "bbox": track.to_ltwh(),
                 "track_id": track.track_id,
             }
             for track in tracked_objects
