@@ -3,7 +3,7 @@ from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtCore import QTimer
 import cv2
 from core.video_processor import VideoProcessor
-from core.model_processor import YOLODeepSortProcessor
+from core.model_processor import Model
 
 
 class VideoPlayer(QMainWindow):
@@ -18,7 +18,7 @@ class VideoPlayer(QMainWindow):
         self.layout.addWidget(self.video_label)
 
         self.video_processor = VideoProcessor(video_path)
-        self.processor = YOLODeepSortProcessor(model_path)
+        self.processor = Model(model_path)
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_frame)
@@ -27,12 +27,12 @@ class VideoPlayer(QMainWindow):
     def draw_bounding_boxes(self, img, tracked_objects):
         """Draw bounding boxes and IDs on the image."""
         for track in tracked_objects:
-            x1, y1, x2, y2 = map(int, track["bbox"])
+            x, y, w, h = map(int, track["bbox"])
             track_id = track["track_id"]
             label = f"ID {track_id}"
-            cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 2)
             cv2.putText(
-                img, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2
+                img, label, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2
             )
 
     def update_frame(self):

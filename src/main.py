@@ -108,7 +108,7 @@ class MainApp(QMainWindow):
 
 if __name__ == "__main__":
     VIDEO_PATH = "../data/footage/drone_footage.mp4"
-    MODEL_PATH = "./assets/best.pt"
+    MODEL_PATH = r"C:\Users\conno\Desktop\temp_repos\Major_Project\src\assets\best.pt"
     app = QApplication(sys.argv)
     main_window = MainApp(MODEL_PATH)
     main_window.showMaximized()
