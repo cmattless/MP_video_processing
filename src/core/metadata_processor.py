@@ -1,4 +1,3 @@
-import os
 from pymediainfo import MediaInfo
 
 

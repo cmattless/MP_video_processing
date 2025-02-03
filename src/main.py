@@ -99,6 +99,7 @@ class MainApp(QMainWindow):
         a VideoPlayer if a valid file path is returned.
         """
         if file_path:
+            self.meta_data = 
             self.video_player = VideoPlayer(file_path, self.model_path)
             self.video_frame_layout.addWidget(self.video_player)
             self.video_frame_layout.removeWidget(self.video_label)
