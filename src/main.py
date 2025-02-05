@@ -10,24 +10,24 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 from PySide6.QtGui import QPixmap, QAction
-from PySide6.QtCore import Slot, Qt
+from PySide6.QtCore import Slot, Qt, QSettings
 
-
-# Import your DialogHandler (the signals-based version).
+# Import DialogHandler, VideoPlayer, and SettingsDialog
 from gui.dialog_handler import DialogHandler
 from gui.video_player import VideoPlayer
+from gui.settings_dialog import SettingsDialog
 
 
 class MainApp(QMainWindow):
     def __init__(self, model_path: str):
         super().__init__()
-        self.model_path = model_path
         self.setWindowTitle("DroneLink")
+        self.model_path = model_path  # Store the initial model path
 
         # Create a top-level widget to hold both the logo and the menu bar in one row.
         top_widget = QWidget()
         top_layout = QHBoxLayout(top_widget)
-        top_layout.setContentsMargins(0, 0, 0, 0)  # remove layout margins
+        top_layout.setContentsMargins(0, 0, 0, 0)  # Remove layout margins
 
         # LOGO
         logo_label = QLabel()
@@ -39,18 +39,29 @@ class MainApp(QMainWindow):
 
         # MENU BAR
         menubar = QMenuBar()
-        file_menu = menubar.addMenu("File")
-        openAction = QAction("Open", self)
-        openAction.triggered.connect(self.__open_file)
-        file_menu.addAction(openAction)
-        top_layout.addWidget(menubar, 1, alignment=Qt.AlignTop)
 
+        # File menu
+        file_menu = menubar.addMenu("File")
+        self.open_action = QAction("Open", self)
+        self.open_action.triggered.connect(self.__open_file)
+        file_menu.addAction(self.open_action)
+
+        # Disable file menu if model path is not set
+        file_menu.setDisabled(self.model_path is None)
+
+        # Settings menu
+        settings_menu = menubar.addMenu("Settings")
+        settings_action = QAction("Settings", self)
+        settings_action.triggered.connect(self.__open_settings)
+        settings_menu.addAction(settings_action)
+
+        top_layout.addWidget(menubar, 1, alignment=Qt.AlignTop)
         self.setMenuWidget(top_widget)
 
+        # Main layout: horizontal split -> Left side = video, Right side = metadata
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
 
-        # Main layout: horizontal split -> Left side = video, Right side = metadata
         self.main_layout = QHBoxLayout(central_widget)
         self.main_layout.setContentsMargins(10, 10, 10, 10)
         self.main_layout.setSpacing(10)
@@ -59,7 +70,7 @@ class MainApp(QMainWindow):
         self.video_frame = QFrame()
         self.video_frame.setStyleSheet("background-color: #2e2e2e; border-radius: 8px;")
         self.video_frame_layout = QVBoxLayout(self.video_frame)
-        self.video_label = QLabel("No Video Input")
+        self.video_label = QLabel(f"Model Path: {self.model_path}")
         self.video_label.setAlignment(Qt.AlignCenter)
         self.video_frame_layout.addWidget(self.video_label)
         self.main_layout.addWidget(self.video_frame, 2)  # stretch factor 2
@@ -76,6 +87,7 @@ class MainApp(QMainWindow):
         self.metadata_frame_layout.addWidget(self.meta_label)
         self.main_layout.addWidget(self.metadata_frame, 1)
 
+        # Dialog Handler for File Selection
         self.dialog_handler = DialogHandler(self)
         self.dialog_handler.signals.file_path_response.connect(
             self.__on_file_path_selected
@@ -83,14 +95,44 @@ class MainApp(QMainWindow):
 
     def __open_file(self) -> None:
         """
-        Trigger a file selection dialog to open a video file. The actual file path
-        is returned asynchronously through the 'on_file_path_selected' slot.
+        Trigger a file selection dialog to open a video file.
         """
         self.dialog_handler.request_file_path(
             title="Open Video File",
             file_filter="Video Files (*.mp4 *.avi *.mov);;All Files (*.*)",
             save_mode=False,
         )
+
+    def __open_settings(self) -> None:
+        """
+        Open the settings dialog and update the model path when changed.
+        """
+        settings_dialog = SettingsDialog(self)
+        settings_dialog.settings_updated.connect(
+            self.update_model_path
+        )  # Connect signal
+        if settings_dialog.exec():
+            self.update_model_path(
+                settings_dialog.MODEL_PATHS.get(
+                    settings_dialog.model_selection_combo.currentText(), None
+                )
+            )
+
+    @Slot(str)
+    def update_model_path(self, new_path: str):
+        """
+        Update the model path dynamically when settings change.
+        """
+        if new_path:
+            self.model_path = new_path
+            settings = QSettings("DroneTek", "DroneLink")
+            settings.setValue("model", self.model_path)
+
+            # Update UI elements
+            self.video_label.setText(f"Model Path: {self.model_path}")
+            self.open_action.setDisabled(False)  # Enable file menu
+        else:
+            self.open_action.setDisabled(True)  # Disable file menu if no model is set
 
     @Slot(str)
     def __on_file_path_selected(self, file_path: str) -> None:
@@ -99,7 +141,7 @@ class MainApp(QMainWindow):
         a VideoPlayer if a valid file path is returned.
         """
         if file_path:
-            self.meta_data = 
+            self.meta_data = None
             self.video_player = VideoPlayer(file_path, self.model_path)
             self.video_frame_layout.addWidget(self.video_player)
             self.video_frame_layout.removeWidget(self.video_label)
@@ -108,10 +150,16 @@ class MainApp(QMainWindow):
 
 
 if __name__ == "__main__":
-    VIDEO_PATH = "../data/footage/drone_footage.mp4"
-    MODEL_PATH = r"C:\Users\conno\Desktop\temp_repos\Major_Project\src\assets\best.pt"
     app = QApplication(sys.argv)
-    main_window = MainApp(MODEL_PATH)
+
+    # Load the stored model path
+    settings = QSettings("DroneTek", "DroneLink")
+    model_name = settings.value("model", "Default")
+    model_path = SettingsDialog.MODEL_PATHS.get(model_name, None)
+
+    # Launch the application
+    main_window = MainApp(model_path)
     main_window.showMaximized()
     main_window.show()
+
     sys.exit(app.exec())
