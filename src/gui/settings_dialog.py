@@ -20,7 +20,6 @@ class SettingsDialog(QDialog):
     MODEL_PATHS = {
         "Default": "/assets/default.py",
         "Lite (Faster)": "/assets/lite.pt",
-        "Enhanced (Accurate)": "/assets/enhanced.pt",
     }
 
     def __init__(self, parent=None):
