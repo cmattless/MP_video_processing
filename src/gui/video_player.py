@@ -40,7 +40,7 @@ def draw_bounding_boxes(img, tracked_objects):
     return img
 
 
-def process_frames_worker(frame_queue, processed_queue, model_path, use_onnx):
+def process_frames_worker(frame_queue, processed_queue, model_path):
     """
     Process frames in a separate process.
 
@@ -48,7 +48,7 @@ def process_frames_worker(frame_queue, processed_queue, model_path, use_onnx):
     processes them, draws bounding boxes, and pushes the processed frame
     to processed_queue.
     """
-    model = Model(model_path, use_onnx=use_onnx)
+    model = Model(model_path)
     while True:
         try:
             frame = frame_queue.get(timeout=1)
@@ -61,14 +61,13 @@ def process_frames_worker(frame_queue, processed_queue, model_path, use_onnx):
 
 
 class VideoPlayer(QMainWindow):
-    def __init__(self, video_path: str, model_path: str, use_onnx: bool = False):
+    def __init__(self, video_path: str, model_path: str):
         """
         Initializes the VideoPlayer GUI.
 
         Args:
             video_path (str): Path to the video file.
-            model_path (str): Path to the YOLO model weights or ONNX model.
-            use_onnx (bool): If True, uses ONNX Runtime for inference.
+            model_path (str): Path to the YOLO model weights
         """
         super().__init__()
 
@@ -93,7 +92,7 @@ class VideoPlayer(QMainWindow):
         # Start the processing worker as a separate process.
         self.processing_process = mp.Process(
             target=process_frames_worker,
-            args=(self.frame_queue, self.processed_queue, model_path, use_onnx),
+            args=(self.frame_queue, self.processed_queue, model_path),
             daemon=True,
         )
 

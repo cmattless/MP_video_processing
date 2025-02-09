@@ -12,22 +12,23 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QPixmap, QAction
 from PySide6.QtCore import Slot, Qt, QSettings
 
-# Import DialogHandler, VideoPlayer, and SettingsDialog
 from gui.dialog_handler import DialogHandler
 from gui.video_player import VideoPlayer
 from gui.settings_dialog import SettingsDialog
 
 
 class MainApp(QMainWindow):
-    def __init__(self, model_path: str):
+    def __init__(self, model_key: str):
         super().__init__()
         self.setWindowTitle("DroneLink")
-        self.model_path = model_path  # Store the initial model path
+        # Retrieve the model path using a key (e.g. "Default", "ModelA", etc.)
+        self.model_key = model_key
+        self.model_path = SettingsDialog.MODEL_PATHS.get(model_key, None)
 
-        # Create a top-level widget to hold both the logo and the menu bar in one row.
+        # Top widget with logo and menu bar in one horizontal layout
         top_widget = QWidget()
         top_layout = QHBoxLayout(top_widget)
-        top_layout.setContentsMargins(0, 0, 0, 0)  # Remove layout margins
+        top_layout.setContentsMargins(0, 0, 0, 0)
 
         # LOGO
         logo_label = QLabel()
@@ -40,14 +41,13 @@ class MainApp(QMainWindow):
         # MENU BAR
         menubar = QMenuBar()
 
-        # File menu
-        file_menu = menubar.addMenu("File")
+        # File menu: store as a member variable if you want to adjust the whole menu later.
+        self.file_menu = menubar.addMenu("File")
         self.open_action = QAction("Open", self)
         self.open_action.triggered.connect(self.__open_file)
-        file_menu.addAction(self.open_action)
-
-        # Disable file menu if model path is not set
-        file_menu.setDisabled(self.model_path is None)
+        self.file_menu.addAction(self.open_action)
+        # Disable the open action if no valid model path is set.
+        self.open_action.setDisabled(self.model_path is None)
 
         # Settings menu
         settings_menu = menubar.addMenu("Settings")
@@ -58,45 +58,42 @@ class MainApp(QMainWindow):
         top_layout.addWidget(menubar, 1, alignment=Qt.AlignTop)
         self.setMenuWidget(top_widget)
 
-        # Main layout: horizontal split -> Left side = video, Right side = metadata
+        # Main layout: left side for video, right side for metadata
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
-
         self.main_layout = QHBoxLayout(central_widget)
         self.main_layout.setContentsMargins(10, 10, 10, 10)
         self.main_layout.setSpacing(10)
 
-        # Create left frame for video footage
+        # Left frame for video footage
         self.video_frame = QFrame()
         self.video_frame.setStyleSheet("background-color: #2e2e2e; border-radius: 8px;")
         self.video_frame_layout = QVBoxLayout(self.video_frame)
         self.video_label = QLabel(f"Model Path: {self.model_path}")
         self.video_label.setAlignment(Qt.AlignCenter)
         self.video_frame_layout.addWidget(self.video_label)
-        self.main_layout.addWidget(self.video_frame, 2)  # stretch factor 2
+        self.main_layout.addWidget(self.video_frame, 2)
 
-        # Create right frame for metadata
+        # Right frame for metadata
         self.metadata_frame = QFrame()
         self.metadata_frame.setStyleSheet(
             "background-color: #2e2e2e; border-radius: 8px;"
         )
         self.metadata_frame_layout = QVBoxLayout(self.metadata_frame)
         self.meta_label = QLabel("Invalid Metadata")
-        self.meta_label.setStyleSheet("color: white;")  # Example text color
+        self.meta_label.setStyleSheet("color: white;")
         self.meta_label.setAlignment(Qt.AlignCenter)
         self.metadata_frame_layout.addWidget(self.meta_label)
         self.main_layout.addWidget(self.metadata_frame, 1)
 
-        # Dialog Handler for File Selection
+        # Dialog Handler for file selection
         self.dialog_handler = DialogHandler(self)
         self.dialog_handler.signals.file_path_response.connect(
             self.__on_file_path_selected
         )
 
     def __open_file(self) -> None:
-        """
-        Trigger a file selection dialog to open a video file.
-        """
+        """Trigger a file selection dialog to open a video file."""
         self.dialog_handler.request_file_path(
             title="Open Video File",
             file_filter="Video Files (*.mp4 *.avi *.mov);;All Files (*.*)",
@@ -105,40 +102,37 @@ class MainApp(QMainWindow):
 
     def __open_settings(self) -> None:
         """
-        Open the settings dialog and update the model path when changed.
+        Open the settings dialog and update the model path.
+        The dialog is expected to allow selection of a model key,
+        which maps to an actual model path.
         """
         settings_dialog = SettingsDialog(self)
-        settings_dialog.settings_updated.connect(
-            self.update_model_path
-        )  # Connect signal
+        settings_dialog.settings_updated.connect(self.update_model_path)
         if settings_dialog.exec():
-            self.update_model_path(
-                settings_dialog.MODEL_PATHS.get(
-                    settings_dialog.model_selection_combo.currentText(), None
-                )
-            )
+            selected_key = settings_dialog.model_selection_combo.currentText()
+            self.update_model_path(selected_key)
 
     @Slot(str)
-    def update_model_path(self, new_path: str):
+    def update_model_path(self, new_key: str):
         """
-        Update the model path dynamically when settings change.
+        Update the model key and corresponding path.
+        Also save the new key to QSettings and enable the file menu action.
         """
-        if new_path:
-            self.model_path = new_path
+        if new_key in SettingsDialog.MODEL_PATHS:
+            self.model_key = new_key
+            self.model_path = SettingsDialog.MODEL_PATHS[new_key]
             settings = QSettings("DroneTek", "DroneLink")
-            settings.setValue("model", self.model_path)
-
-            # Update UI elements
+            settings.setValue("model", self.model_key)
             self.video_label.setText(f"Model Path: {self.model_path}")
-            self.open_action.setDisabled(False)  # Enable file menu
+            self.open_action.setDisabled(False)
         else:
-            self.open_action.setDisabled(True)  # Disable file menu if no model is set
+            self.open_action.setDisabled(True)
 
     @Slot(str)
     def __on_file_path_selected(self, file_path: str) -> None:
         """
-        Slot to handle the file path selected by the user. Instantiates and displays
-        a VideoPlayer if a valid file path is returned.
+        Handle the file path selected by the user.
+        Instantiate and display a VideoPlayer if a valid file path is returned.
         """
         if file_path:
             self.meta_data = None
@@ -151,15 +145,10 @@ class MainApp(QMainWindow):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-
-    # Load the stored model path
     settings = QSettings("DroneTek", "DroneLink")
-    model_name = settings.value("model", "Default")
-    model_path = SettingsDialog.MODEL_PATHS.get(model_name, None)
-
-    # Launch the application
-    main_window = MainApp(model_path)
+    # Retrieve the stored model key; default to "Default" if not set.
+    model_key = settings.value("model", "Default")
+    main_window = MainApp(model_key)
     main_window.showMaximized()
     main_window.show()
-
     sys.exit(app.exec())

@@ -18,8 +18,8 @@ class SettingsDialog(QDialog):
     settings_updated = Signal(str)  # Signal to notify about setting change
 
     MODEL_PATHS = {
-        "Default": "/assets/default.py",
-        "Lite (Faster)": "/assets/lite.pt",
+        "Default": "./assets/default.pt",
+        "Lite (Faster)": "./assets/lite.pt",
     }
 
     def __init__(self, parent=None):
