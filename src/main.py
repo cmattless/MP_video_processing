@@ -14,6 +14,7 @@ from PySide6.QtCore import Slot, Qt, QSettings
 
 from gui.dialog_handler import DialogHandler
 from gui.video_player import VideoPlayer
+from gui.metadata_viewer import MetadataViewer
 from gui.settings_dialog import SettingsDialog
 
 
@@ -21,7 +22,6 @@ class MainApp(QMainWindow):
     def __init__(self, model_key: str):
         super().__init__()
         self.setWindowTitle("DroneLink")
-        # Retrieve the model path using a key (e.g. "Default", "ModelA", etc.)
         self.model_key = model_key
         self.model_path = SettingsDialog.MODEL_PATHS.get(model_key, None)
 
@@ -40,12 +40,11 @@ class MainApp(QMainWindow):
 
         # MENU BAR
         menubar = QMenuBar()
-
-        # File menu: store as a member variable if you want to adjust the whole menu later.
         self.file_menu = menubar.addMenu("File")
         self.open_action = QAction("Open", self)
         self.open_action.triggered.connect(self.__open_file)
         self.file_menu.addAction(self.open_action)
+
         # Disable the open action if no valid model path is set.
         self.open_action.setDisabled(self.model_path is None)
 
@@ -135,10 +134,13 @@ class MainApp(QMainWindow):
         Instantiate and display a VideoPlayer if a valid file path is returned.
         """
         if file_path:
-            self.meta_data = None
+            self.meta_data = MetadataViewer(file_path)
             self.video_player = VideoPlayer(file_path, self.model_path)
             self.video_frame_layout.addWidget(self.video_player)
             self.video_frame_layout.removeWidget(self.video_label)
+
+            self.metadata_frame_layout.addWidget(self.meta_data)
+            self.metadata_frame_layout.removeWidget(self.meta_label)
         else:
             print("No file selected")
 
