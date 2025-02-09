@@ -12,31 +12,58 @@ from core.video_processor import VideoProcessor
 from core.model_processor import Model
 
 
-def draw_bounding_boxes(img, tracked_objects):
+def draw_object_contours(img, tracked_objects):
     """
-    Draw bounding boxes and track IDs on the image.
+    For each detected object (with a bounding box), extract the region,
+    run edge detection to obtain object contours, and draw them on the image.
+    If no clear contour is found, fall back to drawing the bounding box.
 
     Args:
         img (np.ndarray): The image on which to draw.
-        tracked_objects (list): List of tracked object dictionaries.
+        tracked_objects (list): List of detected objects.
+            Each detection must include:
+                - "bbox": [x, y, w, h] bounding box.
+                - "track_id": an identifier.
 
     Returns:
-        np.ndarray: Image with drawn bounding boxes and IDs.
+        np.ndarray: Image with drawn contours (or bounding boxes as fallback).
     """
     for track in tracked_objects:
         x, y, w, h = map(int, track["bbox"])
-        track_id = track["track_id"]
-        label = f"ID {track_id}"
-        cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 2)
-        cv2.putText(
-            img,
-            label,
-            (x, y - 10),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.5,
-            (0, 255, 0),
-            2,
+        # Crop the region of interest (ROI) for this detection
+        roi = img[y : y + h, x : x + w]
+        if roi.size == 0:
+            continue
+
+        # Convert ROI to grayscale and blur to reduce noise
+        gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        # Apply Canny edge detection
+        edges = cv2.Canny(blurred, 50, 150)
+        # Find contours in the edge map
+        contours, _ = cv2.findContours(
+            edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
         )
+
+        if contours:
+            # Select the largest contour (by area)
+            largest_contour = max(contours, key=cv2.contourArea)
+            # Offset contour coordinates to match the original image
+            largest_contour += [x, y]
+            # Draw the contour in green
+            cv2.drawContours(img, [largest_contour], -1, (0, 255, 0), 1)
+            # Optionally, add the track label
+            label = f"ID {track['track_id']}"
+            cv2.putText(
+                img, label, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1
+            )
+        else:
+            # If no contour is found, fallback to drawing a bounding box in red.
+            cv2.rectangle(img, (x, y), (x + w, y + h), (0, 0, 255), 2)
+            label = f"ID {track['track_id']}"
+            cv2.putText(
+                img, label, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1
+            )
     return img
 
 
@@ -45,8 +72,8 @@ def process_frames_worker(frame_queue, processed_queue, model_path):
     Process frames in a separate process.
 
     Initializes the model and continuously pulls frames from frame_queue,
-    processes them, draws bounding boxes, and pushes the processed frame
-    to processed_queue.
+    processes them, draws object contours (or bounding boxes as fallback),
+    and pushes the processed frame to processed_queue.
     """
     model = Model(model_path)
     while True:
@@ -56,7 +83,7 @@ def process_frames_worker(frame_queue, processed_queue, model_path):
             continue
 
         tracked_objects = model.process_frame(frame)
-        processed_frame = draw_bounding_boxes(frame, tracked_objects)
+        processed_frame = draw_object_contours(frame, tracked_objects)
         processed_queue.put(processed_frame)
 
 
@@ -67,7 +94,7 @@ class VideoPlayer(QMainWindow):
 
         Args:
             video_path (str): Path to the video file.
-            model_path (str): Path to the YOLO model weights
+            model_path (str): Path to the model weights.
         """
         super().__init__()
 
