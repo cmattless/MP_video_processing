@@ -3,18 +3,21 @@ FROM python:3.10-slim
 
 # Install required system libraries
 RUN apt-get update && apt-get install -y \
-    ffmpeg \
-    libsm6 \
-    libxext6 \
-    libegl1-mesa \
-    libgl1-mesa-glx \
-    libgl1-mesa-dri \
-    && apt-get clean
-
-RUN echo "Checking Python version"
-RUN command -v python3
-
-
+    libxcb-xinerama0 \
+    libxkbcommon-x11-0 \
+    libxcb-cursor0 \
+    libqt5gui5 \
+    libqt5widgets5 \
+    libqt5network5 \
+    libqt5core5a \
+    libglu1-mesa \
+    libxrender1 \
+    libxcomposite1 \
+    libxcursor1 \
+    libxdamage1 \
+    libxi6 \
+    libxtst6 \
+    xvfb
 
 # Set the working directory
 WORKDIR /app
@@ -26,5 +29,6 @@ COPY . /app
 COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Set default command
-CMD ["python", "main.py"]
+WORKDIR /app/src
+
+CMD ["python", "-m", "main"]
