@@ -1,4 +1,6 @@
 import sys
+import cv2
+import time
 from PySide6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -18,6 +20,25 @@ from gui.metadata_viewer import MetadataViewer
 from gui.settings_dialog import SettingsDialog
 
 
+def get_available_video_devices(max_devices: int = 5) -> list:
+    """
+    Scans device indices from 0 to max_devices - 1 to find available video devices.
+
+    Returns:
+        list: A list of strings representing available devices (e.g., "Device 0").
+    """
+    available = []
+    for i in range(max_devices):
+        # Using CAP_DSHOW reduces spurious error messages on Windows.
+        cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
+        # Allow a brief moment for initialization.
+        time.sleep(0.1)
+        if cap.isOpened():
+            available.append(f"Device {i}")
+        cap.release()
+    return available
+
+
 class MainApp(QMainWindow):
     def __init__(self, model_key: str):
         super().__init__()
@@ -32,7 +53,7 @@ class MainApp(QMainWindow):
 
         # LOGO
         logo_label = QLabel()
-        logo_label.setPixmap(QPixmap("./assets/DroneLink_light.png"))
+        logo_label.setPixmap(QPixmap("./src/assets/DroneLink_light.png"))
         logo_label.setScaledContents(True)
         logo_label.setFixedHeight(15)
         logo_label.setFixedWidth(75)
@@ -41,9 +62,14 @@ class MainApp(QMainWindow):
         # MENU BAR
         menubar = QMenuBar()
         self.file_menu = menubar.addMenu("File")
+
         self.open_action = QAction("Open", self)
-        self.open_action.triggered.connect(self.__open_file)
         self.file_menu.addAction(self.open_action)
+        self.open_action.triggered.connect(self.__open_file)
+
+        self.connect_action = QAction("Connect", self)
+        self.file_menu.addAction(self.connect_action)
+        self.connect_action.triggered.connect(self.__connect_feed)
 
         # Disable the open action if no valid model path is set.
         self.open_action.setDisabled(self.model_path is None)
@@ -99,6 +125,22 @@ class MainApp(QMainWindow):
             save_mode=False,
         )
 
+    def __connect_feed(self) -> None:
+        """Connect to the video feed by letting the user select from available devices."""
+        devices = get_available_video_devices()
+        if not devices:
+            self.dialog_handler.show_message(
+                "No Devices", "No video devices available."
+            )
+            return
+
+        self.dialog_handler.ask_item(
+            title="Select Video Device", message="Select a video device:", items=devices
+        )
+        self.dialog_handler.signals.item_selection_response.connect(
+            self._on_live_stream_selected
+        )
+
     def __open_settings(self) -> None:
         """
         Open the settings dialog and update the model path.
@@ -128,7 +170,10 @@ class MainApp(QMainWindow):
             self.open_action.setDisabled(True)
 
     @Slot(str)
-    def __on_file_path_selected(self, file_path: str) -> None:
+    def __on_file_path_selected(
+        self,
+        file_path: str,
+    ) -> None:
         """
         Handle the file path selected by the user.
         Instantiate and display a VideoPlayer if a valid file path is returned.
@@ -143,6 +188,25 @@ class MainApp(QMainWindow):
             self.metadata_frame_layout.removeWidget(self.meta_label)
         else:
             print("No file selected")
+
+    @Slot(str)
+    def _on_live_stream_selected(self, selection: str) -> None:
+        """
+        Handle the live stream selected by the user.
+        Instantiate and display a VideoPlayer if a valid stream is returned.
+        """
+        if not selection:
+            # User cancelled the selection.
+            return
+        device_index = int(selection.split()[-1])
+
+        # self.meta_data = MetadataViewer("Live Stream")
+        self.video_player = VideoPlayer(device_index, self.model_path, use_stream=True)
+        self.video_frame_layout.addWidget(self.video_player)
+        self.video_frame_layout.removeWidget(self.video_label)
+
+        # self.metadata_frame_layout.addWidget(self.meta_data)
+        # self.metadata_frame_layout.removeWidget(self.meta_label)
 
 
 if __name__ == "__main__":

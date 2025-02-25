@@ -1,5 +1,3 @@
-# video_player.py
-
 import cv2
 import queue
 import threading
@@ -9,6 +7,9 @@ from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtCore import QTimer
 
 from core.video_processor import VideoProcessor
+from core.stream_processor import (
+    StreamProcessor,
+)  # New import for live stream processing
 from core.model_processor import Model
 
 
@@ -30,40 +31,31 @@ def draw_object_contours(img, tracked_objects):
     """
     for track in tracked_objects:
         x, y, w, h = map(int, track["bbox"])
-        # Crop the region of interest (ROI) for this detection
         roi = img[y : y + h, x : x + w]
         if roi.size == 0:
             continue
 
-        # Convert ROI to grayscale and blur to reduce noise
-        gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-        # Apply Canny edge detection
-        edges = cv2.Canny(blurred, 50, 150)
-        # Find contours in the edge map
-        contours, _ = cv2.findContours(
-            edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-        )
+        # gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+        # blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        # edges = cv2.Canny(blurred, 50, 150)
+        # contours, _ = cv2.findContours(
+        #     edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        # )
 
-        if contours:
-            # Select the largest contour (by area)
-            largest_contour = max(contours, key=cv2.contourArea)
-            # Offset contour coordinates to match the original image
-            largest_contour += [x, y]
-            # Draw the contour in green
-            cv2.drawContours(img, [largest_contour], -1, (0, 255, 0), 1)
-            # Optionally, add the track label
-            label = f"ID {track['track_id']}"
-            cv2.putText(
-                img, label, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1
-            )
-        else:
-            # If no contour is found, fallback to drawing a bounding box in red.
-            cv2.rectangle(img, (x, y), (x + w, y + h), (0, 0, 255), 2)
-            label = f"ID {track['track_id']}"
-            cv2.putText(
-                img, label, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1
-            )
+        # if contours:
+        #     largest_contour = max(contours, key=cv2.contourArea)
+        #     largest_contour += [x, y]
+        #     cv2.drawContours(img, [largest_contour], -1, (0, 255, 0), 1)
+        #     label = f"ID {track['track_id']}"
+        #     cv2.putText(
+        #         img, label, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1
+        #     )
+        # else:
+        cv2.rectangle(img, (x, y), (x + w, y + h), (0, 0, 255), 2)
+        label = f"ID {track['track_id']}"
+        cv2.putText(
+            img, label, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1
+        )
     return img
 
 
@@ -88,13 +80,15 @@ def process_frames_worker(frame_queue, processed_queue, model_path):
 
 
 class VideoPlayer(QMainWindow):
-    def __init__(self, video_path: str, model_path: str):
+    def __init__(self, video_source, model_path: str, use_stream: bool = False):
         """
         Initializes the VideoPlayer GUI.
 
         Args:
-            video_path (str): Path to the video file.
+            video_source (str or int): Path to the video file or device index/URL for a live stream.
             model_path (str): Path to the model weights.
+            use_stream (bool, optional): If True, uses the StreamProcessor for live feeds.
+                Otherwise, uses the VideoProcessor. Defaults to False.
         """
         super().__init__()
 
@@ -106,17 +100,20 @@ class VideoPlayer(QMainWindow):
         self.video_label.setScaledContents(True)
         self.layout.addWidget(self.video_label)
 
-        # Initialize video capture.
-        self.video_processor = VideoProcessor(video_path)
+        # Initialize the appropriate video capture processor.
+        if use_stream:
+            self.video_processor = StreamProcessor(video_source)
+        else:
+            self.video_processor = VideoProcessor(video_source)
 
         # Create multiprocessing queues for inter-process communication.
         self.frame_queue = mp.Queue(maxsize=30)
         self.processed_queue = mp.Queue(maxsize=30)
 
-        # Start the capture thread in the main process.
+        # Start the capture thread.
         self.capture_thread = threading.Thread(target=self.capture_frames, daemon=True)
 
-        # Start the processing worker as a separate process.
+        # Start the processing worker in a separate process.
         self.processing_process = mp.Process(
             target=process_frames_worker,
             args=(self.frame_queue, self.processed_queue, model_path),
@@ -132,7 +129,7 @@ class VideoPlayer(QMainWindow):
         self.processing_process.start()
 
     def capture_frames(self):
-        """Reads frames from the video and adds them to the multiprocessing queue."""
+        """Reads frames from the video or stream and adds them to the multiprocessing queue."""
         while True:
             frame = self.video_processor.get_frame()
             if frame is None:
@@ -149,7 +146,6 @@ class VideoPlayer(QMainWindow):
         except queue.Empty:
             return
 
-        # Convert BGR frame to RGB and display.
         frame_rgb = cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB)
         h, w, ch = frame_rgb.shape
         bytes_per_line = ch * w
