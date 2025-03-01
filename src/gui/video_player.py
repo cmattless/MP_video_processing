@@ -1,104 +1,74 @@
-# video_player.py
-
 import cv2
 import queue
 import threading
 import multiprocessing as mp
+import time
 from PySide6.QtWidgets import QMainWindow, QLabel, QVBoxLayout, QWidget
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtCore import QTimer
 
 from core.video_processor import VideoProcessor
+from core.stream_processor import StreamProcessor
 from core.model_processor import Model
 
 
 def draw_object_contours(img, tracked_objects):
     """
-    For each detected object (with a bounding box), extract the region,
-    run edge detection to obtain object contours, and draw them on the image.
-    If no clear contour is found, fall back to drawing the bounding box.
-
-    Args:
-        img (np.ndarray): The image on which to draw.
-        tracked_objects (list): List of detected objects.
-            Each detection must include:
-                - "bbox": [x, y, w, h] bounding box.
-                - "track_id": an identifier.
-
-    Returns:
-        np.ndarray: Image with drawn contours (or bounding boxes as fallback).
+    For each detected object, draw a bounding box and label.
     """
     for track in tracked_objects:
         x, y, w, h = map(int, track["bbox"])
-        # Crop the region of interest (ROI) for this detection
-        roi = img[y : y + h, x : x + w]
-        if roi.size == 0:
+        # Ensure ROI is within image bounds
+        if y < 0 or x < 0 or y + h > img.shape[0] or x + w > img.shape[1]:
             continue
-
-        # Convert ROI to grayscale and blur to reduce noise
-        gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-        # Apply Canny edge detection
-        edges = cv2.Canny(blurred, 50, 150)
-        # Find contours in the edge map
-        contours, _ = cv2.findContours(
-            edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        cv2.rectangle(img, (x, y), (x + w, y + h), (0, 0, 255), 2)
+        label = f"ID {track['track_id']}"
+        cv2.putText(
+            img, label, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1
         )
-
-        if contours:
-            # Select the largest contour (by area)
-            largest_contour = max(contours, key=cv2.contourArea)
-            # Offset contour coordinates to match the original image
-            largest_contour += [x, y]
-            # Draw the contour in green
-            cv2.drawContours(img, [largest_contour], -1, (0, 255, 0), 1)
-            # Optionally, add the track label
-            label = f"ID {track['track_id']}"
-            cv2.putText(
-                img, label, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1
-            )
-        else:
-            # If no contour is found, fallback to drawing a bounding box in red.
-            cv2.rectangle(img, (x, y), (x + w, y + h), (0, 0, 255), 2)
-            label = f"ID {track['track_id']}"
-            cv2.putText(
-                img, label, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1
-            )
     return img
 
 
-def process_frames_worker(frame_queue, processed_queue, model_path):
+def process_frames_worker(frame_queue, processed_queue, model_path, running_flag):
     """
-    Process frames in a separate process.
-
-    Initializes the model and continuously pulls frames from frame_queue,
-    processes them, draws object contours (or bounding boxes as fallback),
-    and pushes the processed frame to processed_queue.
+    Process frames in a separate process. The worker continuously pulls frames
+    from frame_queue, processes them using the model, draws contours, and puts
+    the processed frame into processed_queue.
     """
     model = Model(model_path)
-    while True:
+    while running_flag.value:
         try:
-            frame = frame_queue.get(timeout=1)
+            frame = frame_queue.get(timeout=0.05)
         except queue.Empty:
             continue
 
         tracked_objects = model.process_frame(frame)
         processed_frame = draw_object_contours(frame, tracked_objects)
-        processed_queue.put(processed_frame)
+
+        try:
+            processed_queue.put(processed_frame, timeout=0.05)
+        except queue.Full:
+            # Skip frame if the processed queue is full to avoid blocking
+            pass
 
 
 class VideoPlayer(QMainWindow):
-    def __init__(self, video_path: str, model_path: str):
+    def __init__(
+        self, video_source, model_path: str, use_stream: bool = False, queue_size=30
+    ):
         """
         Initializes the VideoPlayer GUI.
 
         Args:
-            video_path (str): Path to the video file.
+            video_source (str or int): Video file path or stream source.
             model_path (str): Path to the model weights.
+            use_stream (bool, optional): Use live stream processing if True.
+            queue_size (int, optional): Maximum size of the inter-process queues.
         """
         super().__init__()
+        self.running = True
 
-        # Set up the GUI components.
+        # Set up GUI components.
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
         self.layout = QVBoxLayout(self.central_widget)
@@ -106,24 +76,33 @@ class VideoPlayer(QMainWindow):
         self.video_label.setScaledContents(True)
         self.layout.addWidget(self.video_label)
 
-        # Initialize video capture.
-        self.video_processor = VideoProcessor(video_path)
+        # Initialize video capture processor.
+        if use_stream:
+            self.video_processor = StreamProcessor(video_source)
+        else:
+            self.video_processor = VideoProcessor(video_source)
 
-        # Create multiprocessing queues for inter-process communication.
-        self.frame_queue = mp.Queue(maxsize=30)
-        self.processed_queue = mp.Queue(maxsize=30)
+        # Multiprocessing queues for frame exchange.
+        self.frame_queue = mp.Queue(maxsize=queue_size)
+        self.processed_queue = mp.Queue(maxsize=queue_size)
+        # Shared flag for graceful shutdown.
+        self.running_flag = mp.Value("b", True)
 
-        # Start the capture thread in the main process.
+        # Start capture thread.
         self.capture_thread = threading.Thread(target=self.capture_frames, daemon=True)
-
-        # Start the processing worker as a separate process.
+        # Start the frame processing process.
         self.processing_process = mp.Process(
             target=process_frames_worker,
-            args=(self.frame_queue, self.processed_queue, model_path),
+            args=(
+                self.frame_queue,
+                self.processed_queue,
+                model_path,
+                self.running_flag,
+            ),
             daemon=True,
         )
 
-        # Timer to update the displayed frame at ~30 FPS.
+        # Timer to update displayed frame (~30 FPS).
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.display_frame)
         self.timer.start(33)
@@ -131,25 +110,41 @@ class VideoPlayer(QMainWindow):
         self.capture_thread.start()
         self.processing_process.start()
 
-    def capture_frames(self):
-        """Reads frames from the video and adds them to the multiprocessing queue."""
-        while True:
+    def capture_frames(self, n=3):
+        """
+        Continuously capture frames from the video source and enqueue only every nth frame.
+        """
+        frame_counter = 0  # Process every 3rd frame
+        while self.running:
             frame = self.video_processor.get_frame()
             if frame is None:
                 break
+
+            frame_counter += 1
+            if frame_counter % n != 0:
+                continue  # Skip frames that are not the nth frame
+
             try:
-                self.frame_queue.put(frame, timeout=1)
+                self.frame_queue.put(frame, timeout=0.05)
             except queue.Full:
                 continue
 
     def display_frame(self):
-        """Displays the processed frame from the processed_queue on the GUI."""
-        try:
-            processed_frame = self.processed_queue.get_nowait()
-        except queue.Empty:
+        """
+        Dequeues and displays the latest processed frame. If multiple frames
+        are waiting, skip to the most recent to minimize delay.
+        """
+        processed_frame = None
+        while True:
+            try:
+                processed_frame = self.processed_queue.get_nowait()
+            except queue.Empty:
+                break
+
+        if processed_frame is None:
             return
 
-        # Convert BGR frame to RGB and display.
+        # Convert color space and create QImage.
         frame_rgb = cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB)
         h, w, ch = frame_rgb.shape
         bytes_per_line = ch * w
@@ -157,7 +152,11 @@ class VideoPlayer(QMainWindow):
         self.video_label.setPixmap(QPixmap.fromImage(q_image))
 
     def closeEvent(self, event):
-        """Clean up resources when the window is closed."""
+        """
+        Cleanly shutdown threads, processes, and release resources on close.
+        """
+        self.running = False
+        self.running_flag.value = False
         self.video_processor.release()
         self.processing_process.terminate()
         self.processing_process.join()

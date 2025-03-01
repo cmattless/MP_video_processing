@@ -1,3 +1,4 @@
+import os
 from PySide6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -16,10 +17,14 @@ class SettingsDialog(QDialog):
     """Settings Modal Dialog"""
 
     settings_updated = Signal(str)  # Signal to notify about setting change
-
+    current_dir = os.path.dirname(os.path.realpath(__file__))
     MODEL_PATHS = {
-        "Default": "./assets/default.pt",
-        "Lite (Faster)": "./assets/lite.pt",
+        "Default": os.path.abspath(
+            os.path.join(current_dir, "..", "assets", "default.pt")
+        ),
+        "Lite (Faster)": os.path.abspath(
+            os.path.join(current_dir, "..", "assets", "lite.pt")
+        ),
     }
 
     def __init__(self, parent=None):
