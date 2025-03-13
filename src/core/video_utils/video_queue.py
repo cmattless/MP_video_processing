@@ -2,6 +2,7 @@ import threading
 import collections
 from typing import Optional, Any
 
+# This class uses 
 
 class VideoQueue:
     def __init__(self, max_size: Optional[int] = None):
@@ -28,7 +29,7 @@ class VideoQueue:
         """
         with self.lock:
             if self.max_size is not None and len(self.queue) >= self.max_size:
-                # Remove the oldest frame (optional design choice)
+                # Remove the oldest frame if the queue has a max size and is full
                 self.dequeue()
             self.queue.append(frame)
 
