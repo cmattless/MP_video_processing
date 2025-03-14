@@ -1,5 +1,5 @@
 import cv2
-
+from video_utils.video_queue import VideoQueue
 
 class VideoProcessor:
     def __init__(self, video_path: str):
@@ -21,6 +21,7 @@ class VideoProcessor:
         ret, frame = self.cap.read()
         if not ret:
             return None
+        VideoQueue.enqueue(frame)
         return frame
 
     def release(self):

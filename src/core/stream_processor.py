@@ -1,5 +1,5 @@
 import cv2
-
+from video_utils.video_queue import VideoQueue
 
 class StreamProcessor:
 
@@ -23,6 +23,7 @@ class StreamProcessor:
         ret, frame = self.cap.read()
         if not ret:
             return None
+        VideoQueue.enqueue(frame)
         return frame
 
     def release(self):
