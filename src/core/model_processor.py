@@ -1,9 +1,6 @@
 from ultralytics import YOLO
 from deep_sort_realtime.deepsort_tracker import DeepSort
 import torch
-import numpy as np
-import cv2
-
 
 class Model:
     def __init__(

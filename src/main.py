@@ -128,7 +128,7 @@ class MainApp(QMainWindow):
             self.__on_file_path_selected
         )
 
-    def _export_video(self):
+    def __export_video(self):
         """Export the video feed to a file."""
         if VideoQueue.size() == 0:
             self.dialog_handler.show_message("No Video", "No video to export.")
@@ -142,9 +142,6 @@ class MainApp(QMainWindow):
         self.dialog_handler.signals.file_path_response.connect(self._on_export_path_selected)
 
 
-
-
-
     def __open_file(self) -> None:
         """Trigger a file selection dialog to open a video file."""
         self.dialog_handler.request_file_path(
@@ -152,6 +149,7 @@ class MainApp(QMainWindow):
             file_filter="Video Files (*.mp4 *.avi *.mov);;All Files (*.*)",
             save_mode=False,
         )
+
 
     def __connect_feed(self) -> None:
         """Connect to the video feed by letting the user select from available devices."""
@@ -245,7 +243,7 @@ class MainApp(QMainWindow):
         """
         if file_path:
             archive_processor = ArchiveProcessor(file_path, 30, (640, 480))
-            archive_processor.write_frame(VideoQueue)
+            archive_processor.write_frame(VideoQueue.get())
         else:
             DialogHandler.show_message("Export Cancelled", "No file selected.")
 
