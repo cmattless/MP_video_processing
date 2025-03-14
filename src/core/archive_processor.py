@@ -22,9 +22,17 @@ class ArchiveProcessor:
 
     def write_frame(self, frame: VideoQueue) -> None:
         """
-        Writes a frame to the video file.
+        Writes a VideoQueue to the video file.
 
         Args:
-            frame (np.ndarray): The frame to write.
+            frame (VideoQueue): The frame queue to write.
         """
-        self.out.write(frame)
+        for i in range(frame.size()):
+            self.out.write(frame.dequeue())
+        # Once all frames are written, clear the queue (should already be empty)
+        frame.clear()
+        self.out.release()
+
+
+
+

@@ -2,9 +2,12 @@ import threading
 import collections
 from typing import Optional, Any
 
-# This class uses 
 
 class VideoQueue:
+    """
+    A thread-safe queue for storing video frames.
+    """
+
     def __init__(self, max_size: Optional[int] = None):
         """
         Initializes the VideoQueue class.
