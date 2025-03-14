@@ -1,11 +1,12 @@
 import threading
-import collections
+from collections import deque
 from typing import Optional, Any
 
 
 class VideoQueue:
     """
     A thread-safe queue for storing video frames.
+    Automatically discards the oldest frame if maxlen is reached.
     """
 
     def __init__(self, max_size: Optional[int] = None):
@@ -15,50 +16,41 @@ class VideoQueue:
         Args:
             max_size (Optional[int]): Maximum number of frames to store.
             If None, the queue grows dynamically.
-            If set and the queue is full, the oldest
-            frame will be removed to make room.
         """
-        self.queue = collections.deque()
-        self.max_size = max_size
         self.lock = threading.Lock()
+        if max_size is not None:
+            self.queue = deque(maxlen=max_size)
+        else:
+            self.queue = deque()
 
     def enqueue(self, frame: Any) -> None:
         """
-        Adds a frame to the queue.
-        If max_size is set and the queue is full, the oldest frame is dropped.
-
+        Enqueue a frame. If deque has a maxlen and is full, the oldest
+        frame is automatically discarded by deque.
         Args:
             frame (Any): The video frame to add.
         """
         with self.lock:
-            if self.max_size is not None and len(self.queue) >= self.max_size:
-                # Remove the oldest frame if the queue has a max size and is full
-                self.dequeue()
             self.queue.append(frame)
 
     def dequeue(self) -> Optional[Any]:
         """
-        Removes and returns the first frame from the queue.
-
+        Dequeue and returns the oldest frame or None if empty.
         Returns:
             The first frame if available, or None if the queue is empty.
         """
         with self.lock:
-            if not self.queue:
-                return None
-            return self.queue.popleft()
+            return self.queue.popleft() if self.queue else None
 
     def peek(self) -> Optional[Any]:
         """
-        Returns the first frame without removing it.
-
+        Returns the oldest frame without removing it, or None if empty.
+        
         Returns:
             The first frame if available, or None if the queue is empty.
         """
         with self.lock:
-            if not self.queue:
-                return None
-            return self.queue[0]
+            return self.queue[0] if self.queue else None
 
     def is_empty(self) -> bool:
         """
