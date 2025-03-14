@@ -14,6 +14,10 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QPixmap, QAction
 from PySide6.QtCore import Slot, Qt, QSettings
 
+from core.video_utils.video_queue import VideoQueue
+from core.archive_processor import ArchiveProcessor
+
+
 from gui.dialog_handler import DialogHandler
 from gui.video_player import VideoPlayer
 from gui.metadata_viewer import MetadataViewer
@@ -62,6 +66,11 @@ class MainApp(QMainWindow):
         # MENU BAR
         menubar = QMenuBar()
         self.file_menu = menubar.addMenu("File")
+        
+        
+        self.export_action = QAction("Export", self)
+        self.file_menu.addAction(self.export_action)
+        self.export_action.triggered.connect(self.__export_video)
 
         self.open_action = QAction("Open", self)
         self.file_menu.addAction(self.open_action)
@@ -70,6 +79,8 @@ class MainApp(QMainWindow):
         self.connect_action = QAction("Connect", self)
         self.file_menu.addAction(self.connect_action)
         self.connect_action.triggered.connect(self.__connect_feed)
+
+        self.file_menu.addAction("Exit").triggered.connect(self.close)
 
         # Disable the open action if no valid model path is set.
         self.open_action.setDisabled(self.model_path is None)
@@ -116,6 +127,23 @@ class MainApp(QMainWindow):
         self.dialog_handler.signals.file_path_response.connect(
             self.__on_file_path_selected
         )
+
+    def _export_video(self):
+        """Export the video feed to a file."""
+        if VideoQueue.size() == 0:
+            self.dialog_handler.show_message("No Video", "No video to export.")
+            return
+
+        self.dialog_handler.request_file_path(
+            title="Export Video",
+            file_filter="Video Files (*.mp4);;All Files (*.*)",
+            save_mode=True,
+        )
+        self.dialog_handler.signals.file_path_response.connect(self._on_export_path_selected)
+
+
+
+
 
     def __open_file(self) -> None:
         """Trigger a file selection dialog to open a video file."""
@@ -191,6 +219,7 @@ class MainApp(QMainWindow):
 
     @Slot(str)
     def _on_live_stream_selected(self, selection: str) -> None:
+
         """
         Handle the live stream selected by the user.
         Instantiate and display a VideoPlayer if a valid stream is returned.
@@ -207,6 +236,18 @@ class MainApp(QMainWindow):
 
         # self.metadata_frame_layout.addWidget(self.meta_data)
         # self.metadata_frame_layout.removeWidget(self.meta_label)
+
+    @Slot(str)
+    def _on_export_path_selected(self, file_path: str) -> None:
+        """
+        Handle the file path selected by the user for export.
+        Instantiate and display an ArchiveProcessor if a valid file path is returned.
+        """
+        if file_path:
+            archive_processor = ArchiveProcessor(file_path, 30, (640, 480))
+            archive_processor.write_frame(VideoQueue)
+        else:
+            DialogHandler.show_message("Export Cancelled", "No file selected.")
 
 
 if __name__ == "__main__":
