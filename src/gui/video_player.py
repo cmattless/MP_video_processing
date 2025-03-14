@@ -10,6 +10,7 @@ from PySide6.QtCore import QTimer
 from core.video_processor import VideoProcessor
 from core.stream_processor import StreamProcessor
 from core.model_processor import Model
+from src.core.video_utils.video_queue import VideoQueue
 
 
 def draw_object_contours(img, tracked_objects):
@@ -54,7 +55,7 @@ def process_frames_worker(frame_queue, processed_queue, model_path, running_flag
 
 class VideoPlayer(QMainWindow):
     def __init__(
-        self, video_source, model_path: str, use_stream: bool = False, queue_size=30
+        self, video_source, model_path: str, use_stream: bool = False, queue_size=100
     ):
         """
         Initializes the VideoPlayer GUI.
@@ -146,6 +147,7 @@ class VideoPlayer(QMainWindow):
 
         # Convert color space and create QImage.
         frame_rgb = cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB)
+        VideoQueue.enqueue(frame_rgb)
         h, w, ch = frame_rgb.shape
         bytes_per_line = ch * w
         q_image = QImage(frame_rgb.data, w, h, bytes_per_line, QImage.Format_RGB888)

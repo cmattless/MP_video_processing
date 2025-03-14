@@ -8,6 +8,7 @@ class VideoQueue:
     A class-level (singleton-like) thread-safe queue for storing video frames.
     Automatically discards the oldest frame if maxlen is reached.
     """
+
     _queue = deque()
     _lock = threading.Lock()
     _max_size: Optional[int] = None
@@ -16,7 +17,7 @@ class VideoQueue:
     def configure(cls, max_size: Optional[int] = None) -> None:
         """
         Configures a maximum size for the shared queue.
-        
+
         Args:
             max_size (Optional[int]): Maximum number of frames to store.
             If None, the queue grows dynamically. If set and the queue
@@ -33,8 +34,8 @@ class VideoQueue:
         Args:
             frame (Any): The video frame to add.
         """
-        with self.lock:
-            self.queue.append(frame)
+        with self._lock:
+            self._queue.append(frame)
 
     @classmethod
     def dequeue(self) -> Optional[Any]:
@@ -44,8 +45,8 @@ class VideoQueue:
         Returns:
             The first frame if available, or None if the queue is empty.
         """
-        with self.lock:
-            return self.queue.popleft() if self.queue else None
+        with self._lock:
+            return self._queue.popleft() if self._queue else None
 
     @classmethod
     def peek(self) -> Optional[Any]:
@@ -55,8 +56,8 @@ class VideoQueue:
         Returns:
             The first frame if available, or None if the queue is empty.
         """
-        with self.lock:
-            return self.queue[0] if self.queue else None
+        with self._lock:
+            return self._queue[0] if self._queue else None
 
     @classmethod
     def is_empty(self) -> bool:
@@ -66,9 +67,9 @@ class VideoQueue:
         Returns:
             True if the queue is empty, otherwise False.
         """
-        with self.lock:
-            return len(self.queue) == 0
-        
+        with self._lock:
+            return len(self._queue) == 0
+
     @classmethod
     def size(self) -> int:
         """
@@ -77,13 +78,24 @@ class VideoQueue:
         Returns:
             An integer count of frames in the queue.
         """
-        with self.lock:
-            return len(self.queue)
+        with self._lock:
+            return len(self._queue)
+
+    @classmethod
+    def get(self):
+        """
+        Returns all frames in the queue.
+
+        Returns:
+            A list of all frames in the queue.
+        """
+        with self._lock:
+            return list(self._queue)
 
     @classmethod
     def clear(self) -> None:
         """
         Clears all frames from the queue.
         """
-        with self.lock:
-            self.queue.clear()
+        with self._lock:
+            self._queue.clear()
