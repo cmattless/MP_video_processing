@@ -29,8 +29,10 @@ class ArchiveProcessor:
         :param frame: The processed frame (must match the frame_size and color format).
         """
 
-        for i in range(frames.size()):
-            self.video_writer.write(frames.dequeue())
+        while not frames.is_empty():
+            frame = frames.dequeue()
+            if frame is not None:
+                self.video_writer.write(frame)
 
     def release(self) -> None:
         """

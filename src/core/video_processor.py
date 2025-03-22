@@ -18,7 +18,9 @@ class VideoProcessor:
             np.ndarray or None: The video frame if available, else None.
         """
         ret, frame = self.cap.read()
+        # If the frame is not available, return None
         if not ret:
+            self.release()
             return None
         return frame
 

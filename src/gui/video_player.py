@@ -51,6 +51,7 @@ def process_frames_worker(frame_queue, processed_queue, model_path, running_flag
         tracked_objects = model.process_frame(frame)
         processed_frame = draw_object_contours(frame, tracked_objects)
 
+
         try:
             processed_queue.put(processed_frame, timeout=0.05)
         except queue.Full:
@@ -60,7 +61,12 @@ def process_frames_worker(frame_queue, processed_queue, model_path, running_flag
 
 class VideoPlayer(QMainWindow):
     def __init__(
-        self, video_source, model_path: str, use_stream: bool = False, queue_size=100
+        self,
+        video_source,
+        archive_queue,
+        model_path: str,
+        use_stream: bool = False,
+        queue_size=100,
     ):
         """
         Initializes the VideoPlayer GUI.
@@ -112,6 +118,7 @@ class VideoPlayer(QMainWindow):
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.display_frame)
         self.timer.start(33)
+        self.archive_queue = archive_queue
 
         self.capture_thread.start()
         self.processing_process.start()
@@ -137,18 +144,21 @@ class VideoPlayer(QMainWindow):
         are waiting, skip to the most recent to minimize delay.
         """
         processed_frame = None
-        while True:
-            try:
-                processed_frame = self.processed_queue.get_nowait()
-            except queue.Empty:
-                break
+        # Get the latest frame
+        try:
+            processed_frame = self.processed_queue.get_nowait()
+        except queue.Empty:
+
+            return
 
         if processed_frame is None:
             return
 
         # Convert color space and create QImage.
         frame_rgb = cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB)
-        VideoQueue.enqueue(frame_rgb)
+
+        self.archive_queue.enqueue(frame_rgb.copy())
+
         h, w, ch = frame_rgb.shape
         bytes_per_line = ch * w
         q_image = QImage(frame_rgb.data, w, h, bytes_per_line, QImage.Format_RGB888)

@@ -47,6 +47,9 @@ class MainApp(QMainWindow):
     def __init__(self, model_key: str):
         super().__init__()
         self.setWindowTitle("DroneLink")
+
+        self.archive_queue = VideoQueue()
+
         self.model_key = model_key
         self.model_path = SettingsDialog.MODEL_PATHS.get(model_key, None)
 
@@ -66,8 +69,7 @@ class MainApp(QMainWindow):
         # MENU BAR
         menubar = QMenuBar()
         self.file_menu = menubar.addMenu("File")
-        
-        
+
         self.export_action = QAction("Export", self)
         self.file_menu.addAction(self.export_action)
         self.export_action.triggered.connect(self.__export_video)
@@ -130,7 +132,7 @@ class MainApp(QMainWindow):
 
     def __export_video(self):
         """Export the video feed to a file."""
-        if VideoQueue.size() == 0:
+        if VideoQueue.is_empty():
             self.dialog_handler.show_message("No Video", "No video to export.")
             return
 
@@ -139,8 +141,9 @@ class MainApp(QMainWindow):
             file_filter="Video Files (*.mp4);;All Files (*.*)",
             save_mode=True,
         )
-        self.dialog_handler.signals.file_path_response.connect(self._on_export_path_selected)
-
+        self.dialog_handler.signals.file_path_response.connect(
+            self._on_export_path_selected
+        )
 
     def __open_file(self) -> None:
         """Trigger a file selection dialog to open a video file."""
@@ -149,7 +152,6 @@ class MainApp(QMainWindow):
             file_filter="Video Files (*.mp4 *.avi *.mov);;All Files (*.*)",
             save_mode=False,
         )
-
 
     def __connect_feed(self) -> None:
         """Connect to the video feed by letting the user select from available devices."""
@@ -206,7 +208,9 @@ class MainApp(QMainWindow):
         """
         if file_path:
             self.meta_data = MetadataViewer(file_path)
-            self.video_player = VideoPlayer(file_path, self.model_path)
+            self.video_player = VideoPlayer(
+                file_path, self.archive_queue, self.model_path
+            )
             self.video_frame_layout.addWidget(self.video_player)
             self.video_frame_layout.removeWidget(self.video_label)
 
@@ -217,7 +221,6 @@ class MainApp(QMainWindow):
 
     @Slot(str)
     def _on_live_stream_selected(self, selection: str) -> None:
-
         """
         Handle the live stream selected by the user.
         Instantiate and display a VideoPlayer if a valid stream is returned.
@@ -241,11 +244,30 @@ class MainApp(QMainWindow):
         Handle the file path selected by the user for export.
         Instantiate and display an ArchiveProcessor if a valid file path is returned.
         """
-        if file_path:
-            archive_processor = ArchiveProcessor(file_path, 30, (640, 480))
-            archive_processor.write_frame(VideoQueue.get())
-        else:
-            DialogHandler.show_message("Export Cancelled", "No file selected.")
+
+        if not file_path:
+            self.dialog_handler.show_message("Export Cancelled", "No file selected.")
+            return
+
+        if self.archive_queue.is_empty():
+            self.dialog_handler.show_message(
+                "Export Failed", "No frames available to export."
+            )
+            return
+
+        if self.video_player is not None:
+            self.video_player.close()
+
+        archive_processor = ArchiveProcessor(file_path, 30, (640, 480))
+
+        # Write all frames from the queue once
+        archive_processor.write_frame(self.archive_queue)
+
+        archive_processor.release()
+
+        self.dialog_handler.show_message(
+            "Export Complete", "Video exported successfully."
+        )
 
 
 if __name__ == "__main__":
