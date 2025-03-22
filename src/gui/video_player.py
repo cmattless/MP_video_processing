@@ -30,14 +30,19 @@ def draw_object_contours(img, tracked_objects):
     return img
 
 
-def process_frames_worker(frame_queue, processed_queue, model_path, running_flag):
+def process_frames_worker(frame_queue, processed_queue, model_path, running_flag, n=3):
     """
     Process frames in a separate process. The worker continuously pulls frames
     from frame_queue, processes them using the model, draws contours, and puts
-    the processed frame into processed_queue.
+    the processed frame into processed_queue, skips nth frame (default 3).
     """
     model = Model(model_path)
+    frame_counter = 0
+    # Skip frames that are not the nth frame
     while running_flag.value:
+        frame_counter += 1
+        if frame_counter % n != 0:
+            continue
         try:
             frame = frame_queue.get(timeout=0.05)
         except queue.Empty:
@@ -111,19 +116,15 @@ class VideoPlayer(QMainWindow):
         self.capture_thread.start()
         self.processing_process.start()
 
-    def capture_frames(self, n=3):
+    def capture_frames(self):
         """
-        Continuously capture frames from the video source and enqueue only every nth frame.
+        Continuously capture frames from the video source and enqueue.
         """
-        frame_counter = 0  # Process every 3rd frame
+
         while self.running:
             frame = self.video_processor.get_frame()
             if frame is None:
                 break
-
-            frame_counter += 1
-            if frame_counter % n != 0:
-                continue  # Skip frames that are not the nth frame
 
             try:
                 self.frame_queue.put(frame, timeout=0.05)
