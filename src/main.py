@@ -136,11 +136,14 @@ class MainApp(QMainWindow):
             self.dialog_handler.show_message("No Video", "No video to export.")
             return
 
+        # Use start_processors=False so that the __on_file_path_selected slot will return immediately.
         self.dialog_handler.request_file_path(
             title="Export Video",
             file_filter="Video Files (*.mp4);;All Files (*.*)",
+            start_processors=False,
             save_mode=True,
         )
+        # Connect export-specific slot
         self.dialog_handler.signals.file_path_response.connect(
             self._on_export_path_selected
         )
@@ -201,11 +204,15 @@ class MainApp(QMainWindow):
     def __on_file_path_selected(
         self,
         file_path: str,
+        start_processors: bool = False,
     ) -> None:
         """
         Handle the file path selected by the user.
         Instantiate and display a VideoPlayer if a valid file path is returned.
         """
+        if not start_processors:
+            return
+        # Instantiate processors only when starting playback
         if file_path:
             self.meta_data = MetadataViewer(file_path)
             self.video_player = VideoPlayer(
@@ -244,29 +251,50 @@ class MainApp(QMainWindow):
         Handle the file path selected by the user for export.
         Instantiate and display an ArchiveProcessor if a valid file path is returned.
         """
-
         if not file_path:
             self.dialog_handler.show_message("Export Cancelled", "No file selected.")
             return
 
-        if self.archive_queue.is_empty():
+        # Close the video player if it exists to ensure resources are released.
+        if hasattr(self, "video_player") and self.video_player is not None:
+            self.video_player.close()
+
+        queue_size = self.archive_queue.size()
+        if queue_size == 0:
             self.dialog_handler.show_message(
                 "Export Failed", "No frames available to export."
             )
             return
 
-        if self.video_player is not None:
-            self.video_player.close()
-
+        # Create ArchiveProcessor and write frames
         archive_processor = ArchiveProcessor(file_path, 30, (640, 480))
 
-        # Write all frames from the queue once
-        archive_processor.write_frame(self.archive_queue)
+        frames_exported = 0
+        while not self.archive_queue.is_empty():
+            frame = self.archive_queue.dequeue()
+            if frame is not None:
+                # Convert from RGB to BGR if needed.
+                frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                # Resize frame to match the output video frame size.
+                frame = cv2.resize(frame, (640, 480))
+                archive_processor.write_frame(frame)
+                frames_exported += 1
 
         archive_processor.release()
 
-        self.dialog_handler.show_message(
-            "Export Complete", "Video exported successfully."
+        if frames_exported > 0:
+            self.dialog_handler.show_message(
+                "Export Complete",
+                f"Video exported successfully. Exported {frames_exported} frames.",
+            )
+        else:
+            self.dialog_handler.show_message(
+                "Export Failed", "Failed to export frames."
+            )
+
+        # Disconnect the export slot to avoid multiple connections if needed.
+        self.dialog_handler.signals.file_path_response.disconnect(
+            self._on_export_path_selected
         )
 
 

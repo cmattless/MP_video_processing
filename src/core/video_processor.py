@@ -1,5 +1,6 @@
 import cv2
 
+
 class VideoProcessor:
     def __init__(self, video_path: str):
         """
@@ -20,7 +21,7 @@ class VideoProcessor:
         ret, frame = self.cap.read()
         # If the frame is not available, return None
         if not ret:
-            self.release()
+
             return None
         return frame
 

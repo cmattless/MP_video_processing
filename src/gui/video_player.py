@@ -51,7 +51,6 @@ def process_frames_worker(frame_queue, processed_queue, model_path, running_flag
         tracked_objects = model.process_frame(frame)
         processed_frame = draw_object_contours(frame, tracked_objects)
 
-
         try:
             processed_queue.put(processed_frame, timeout=0.05)
         except queue.Full:
@@ -148,10 +147,10 @@ class VideoPlayer(QMainWindow):
         try:
             processed_frame = self.processed_queue.get_nowait()
         except queue.Empty:
-
             return
 
         if processed_frame is None:
+            self.close()
             return
 
         # Convert color space and create QImage.
@@ -163,6 +162,17 @@ class VideoPlayer(QMainWindow):
         bytes_per_line = ch * w
         q_image = QImage(frame_rgb.data, w, h, bytes_per_line, QImage.Format_RGB888)
         self.video_label.setPixmap(QPixmap.fromImage(q_image))
+
+    def close(self):
+        """
+        Cleanly shutdown threads, processes, and release resources.
+        """
+        self.running = False
+        self.running_flag.value = False
+        self.video_processor.release()
+        self.processing_process.terminate()
+        self.processing_process.join()
+        cv2.destroyAllWindows()
 
     def closeEvent(self, event):
         """

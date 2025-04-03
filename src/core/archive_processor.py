@@ -16,23 +16,13 @@ class ArchiveProcessor:
         :param frame_size: Tuple indicating (width, height) of the video frames.
         """
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
         self.video_writer = cv2.VideoWriter(output_path, fourcc, fps, frame_size, True)
-
         if not self.video_writer.isOpened():
             raise IOError(f"Cannot open {output_path} for writing.")
 
-    def write_frame(self, frames: VideoQueue) -> None:
-        """
-        Writes a single processed frame to the video file.
-        :param frame: The processed frame (must match the frame_size and color format).
-        """
-
-        while not frames.is_empty():
-            frame = frames.dequeue()
-            if frame is not None:
-                self.video_writer.write(frame)
+    def write_frame(self, frame):
+        self.video_writer.write(frame)
 
     def release(self) -> None:
         """
