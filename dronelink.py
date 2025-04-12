@@ -13,6 +13,7 @@ if __name__ == "__main__":
     from PySide6.QtCore import QSettings
 
     app = QApplication(sys.argv)
+
     settings = QSettings("DroneTek", "DroneLink")
     model_key = settings.value("model", "Default")
 
@@ -20,4 +21,4 @@ if __name__ == "__main__":
     main_window.showMaximized()
     main_window.show()
 
-    sys.exit(app.exec_())
+    sys.exit(app.exec())

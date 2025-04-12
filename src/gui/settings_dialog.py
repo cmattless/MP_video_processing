@@ -1,14 +1,10 @@
 import os
 from PySide6.QtWidgets import (
-    QApplication,
-    QMainWindow,
-    QPushButton,
     QVBoxLayout,
     QDialog,
     QLabel,
     QComboBox,
     QDialogButtonBox,
-    QWidget,
 )
 from PySide6.QtCore import QSettings, Signal, Slot
 
@@ -17,14 +13,14 @@ class SettingsDialog(QDialog):
     """Settings Modal Dialog"""
 
     settings_updated = Signal(str)  # Signal to notify about setting change
-    current_dir = os.path.dirname(os.path.realpath(__file__))
+
+    # search assets folder for model files and return the paths
+    assets = os.listdir(os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "assets")))
+    assets = [asset for asset in assets if asset.endswith(".pt")]
+
     MODEL_PATHS = {
-        "Default": os.path.abspath(
-            os.path.join(current_dir, "..", "assets", "default.pt")
-        ),
-        "Lite (Faster)": os.path.abspath(
-            os.path.join(current_dir, "..", "assets", "lite.pt")
-        ),
+        asset: os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "assets", asset))
+        for asset in assets
     }
 
     def __init__(self, parent=None):

@@ -6,12 +6,12 @@ from PySide6.QtCore import QObject, Signal
 class DialogSignals(QObject):
     message_shown = Signal(str, str)
     yes_no_asked = Signal(str, str)
-    file_path_requested = Signal(str, str, bool)
+    file_path_requested = Signal(str, str, bool, bool)
     text_input_requested = Signal(str, str, str)
     item_selection_requested = Signal(str, str, list)
 
     yes_no_response = Signal(bool)
-    file_path_response = Signal(str)
+    file_path_response = Signal(str, bool)
     text_input_response = Signal(str)
     item_selection_response = Signal(str)
 
@@ -48,7 +48,9 @@ class DialogHandler:
         )
         self.signals.yes_no_response.emit(reply == QMessageBox.StandardButton.Yes)
 
-    def _handle_file_path(self, title: str, file_filter: str, save_mode: bool) -> None:
+    def _handle_file_path(
+        self, title: str, file_filter: str, save_mode: bool, start_processors: bool
+    ) -> None:
         if save_mode:
             file_path, _ = QFileDialog.getSaveFileName(
                 self.parent, title, "", file_filter
@@ -57,7 +59,7 @@ class DialogHandler:
             file_path, _ = QFileDialog.getOpenFileName(
                 self.parent, title, "", file_filter
             )
-        self.signals.file_path_response.emit(file_path)
+        self.signals.file_path_response.emit(file_path, start_processors)
 
     def _handle_text_input(self, title: str, message: str, default_text: str) -> None:
         text, ok = QInputDialog.getText(self.parent, title, message, text=default_text)
@@ -83,9 +85,15 @@ class DialogHandler:
         self.signals.yes_no_asked.emit(title, message)
 
     def request_file_path(
-        self, title: str, file_filter: str = "All Files (*.*)", save_mode: bool = False
+        self,
+        title: str,
+        start_processors: bool = True,
+        file_filter: str = "All Files (*.*)",
+        save_mode: bool = False,
     ) -> None:
-        self.signals.file_path_requested.emit(title, file_filter, save_mode)
+        self.signals.file_path_requested.emit(
+            title, file_filter, save_mode, start_processors
+        )
 
     def request_text_input(
         self, title: str, message: str, default_text: str = ""

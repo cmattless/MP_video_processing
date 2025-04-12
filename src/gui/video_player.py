@@ -10,6 +10,7 @@ from PySide6.QtCore import QTimer
 from core.video_processor import VideoProcessor
 from core.stream_processor import StreamProcessor
 from core.model_processor import Model
+from src.core.video_utils.video_queue import VideoQueue
 
 
 def draw_object_contours(img, tracked_objects):
@@ -29,14 +30,19 @@ def draw_object_contours(img, tracked_objects):
     return img
 
 
-def process_frames_worker(frame_queue, processed_queue, model_path, running_flag):
+def process_frames_worker(frame_queue, processed_queue, model_path, running_flag, n=3):
     """
     Process frames in a separate process. The worker continuously pulls frames
     from frame_queue, processes them using the model, draws contours, and puts
-    the processed frame into processed_queue.
+    the processed frame into processed_queue, skips nth frame (default 3).
     """
     model = Model(model_path)
+    frame_counter = 0
+    # Skip frames that are not the nth frame
     while running_flag.value:
+        frame_counter += 1
+        if frame_counter % n != 0:
+            continue
         try:
             frame = frame_queue.get(timeout=0.05)
         except queue.Empty:
@@ -54,7 +60,12 @@ def process_frames_worker(frame_queue, processed_queue, model_path, running_flag
 
 class VideoPlayer(QMainWindow):
     def __init__(
-        self, video_source, model_path: str, use_stream: bool = False, queue_size=30
+        self,
+        video_source,
+        archive_queue,
+        model_path: str,
+        use_stream: bool = False,
+        queue_size=100,
     ):
         """
         Initializes the VideoPlayer GUI.
@@ -106,23 +117,20 @@ class VideoPlayer(QMainWindow):
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.display_frame)
         self.timer.start(33)
+        self.archive_queue = archive_queue
 
         self.capture_thread.start()
         self.processing_process.start()
 
-    def capture_frames(self, n=3):
+    def capture_frames(self):
         """
-        Continuously capture frames from the video source and enqueue only every nth frame.
+        Continuously capture frames from the video source and enqueue.
         """
-        frame_counter = 0  # Process every 3rd frame
+
         while self.running:
             frame = self.video_processor.get_frame()
             if frame is None:
                 break
-
-            frame_counter += 1
-            if frame_counter % n != 0:
-                continue  # Skip frames that are not the nth frame
 
             try:
                 self.frame_queue.put(frame, timeout=0.05)
@@ -135,21 +143,36 @@ class VideoPlayer(QMainWindow):
         are waiting, skip to the most recent to minimize delay.
         """
         processed_frame = None
-        while True:
-            try:
-                processed_frame = self.processed_queue.get_nowait()
-            except queue.Empty:
-                break
+        # Get the latest frame
+        try:
+            processed_frame = self.processed_queue.get_nowait()
+        except queue.Empty:
+            return
 
         if processed_frame is None:
+            self.close()
             return
 
         # Convert color space and create QImage.
         frame_rgb = cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB)
+
+        self.archive_queue.enqueue(frame_rgb.copy())
+
         h, w, ch = frame_rgb.shape
         bytes_per_line = ch * w
         q_image = QImage(frame_rgb.data, w, h, bytes_per_line, QImage.Format_RGB888)
         self.video_label.setPixmap(QPixmap.fromImage(q_image))
+
+    def close(self):
+        """
+        Cleanly shutdown threads, processes, and release resources.
+        """
+        self.running = False
+        self.running_flag.value = False
+        self.video_processor.release()
+        self.processing_process.terminate()
+        self.processing_process.join()
+        cv2.destroyAllWindows()
 
     def closeEvent(self, event):
         """

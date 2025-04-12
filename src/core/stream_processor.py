@@ -1,6 +1,5 @@
 import cv2
 
-
 class StreamProcessor:
 
     def __init__(self, stream_source: int = 0):
