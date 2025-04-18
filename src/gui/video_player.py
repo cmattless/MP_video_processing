@@ -3,7 +3,7 @@ import queue
 import threading
 import multiprocessing as mp
 import time
-from PySide6.QtWidgets import QMainWindow, QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QMainWindow, QLabel, QVBoxLayout, QWidget, QPushButton
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtCore import QTimer
 
@@ -87,6 +87,17 @@ class VideoPlayer(QMainWindow):
         self.video_label.setScaledContents(True)
         self.layout.addWidget(self.video_label)
 
+        self.play_pause_button = QPushButton("Pause")
+        self.play_pause_button.setCheckable(True)
+        self.play_pause_button.setChecked(False)
+        self.layout.addWidget(self.play_pause_button)
+        # Hide button when streaming
+        self.play_pause_button.setVisible(not use_stream)
+        # Connect toggle signal
+        self.play_pause_button.toggled.connect(self.toggle_play_pause)
+
+
+
         # Initialize video capture processor.
         if use_stream:
             self.video_processor = StreamProcessor(video_source)
@@ -122,11 +133,24 @@ class VideoPlayer(QMainWindow):
         self.capture_thread.start()
         self.processing_process.start()
 
+    
+    def toggle_play_pause(self, checked):
+        """
+        Toggle play/pause state of the video playback.
+        """
+        if checked:
+            # Paused: stop updating frames
+            self.timer.stop()
+            self.play_pause_button.setText("Play")
+        else:
+            # Playing: resume frame updates
+            self.timer.start(33)
+            self.play_pause_button.setText("Pause")
+
     def capture_frames(self):
         """
         Continuously capture frames from the video source and enqueue.
         """
-
         while self.running:
             frame = self.video_processor.get_frame()
             if frame is None:
