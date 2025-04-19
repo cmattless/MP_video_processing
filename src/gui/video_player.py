@@ -5,7 +5,7 @@ import multiprocessing as mp
 import time
 from PySide6.QtWidgets import QMainWindow, QLabel, QVBoxLayout, QWidget, QPushButton
 from PySide6.QtGui import QImage, QPixmap
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QTimer, Qt
 
 from core.video_processor import VideoProcessor
 from core.stream_processor import StreamProcessor
@@ -78,6 +78,7 @@ class VideoPlayer(QMainWindow):
         """
         super().__init__()
         self.running = True
+        self.setAttribute(Qt.WA_DeleteOnClose, True)
 
         # Set up GUI components.
         self.central_widget = QWidget()
@@ -87,6 +88,13 @@ class VideoPlayer(QMainWindow):
         self.video_label.setScaledContents(True)
         self.layout.addWidget(self.video_label)
 
+        self.close_button = QPushButton("x")
+        self.close_button.setFixedSize(30, 30)
+        self.close_button.setToolTip("Close")
+        self.close_button.setStyleSheet("background-color: red; color: white;")
+        self.close_button.clicked.connect(self.close)
+        self.layout.addWidget(self.close_button)
+
         self.play_pause_button = QPushButton("Pause")
         self.play_pause_button.setCheckable(True)
         self.play_pause_button.setChecked(False)
@@ -95,8 +103,6 @@ class VideoPlayer(QMainWindow):
         self.play_pause_button.setVisible(not use_stream)
         # Connect toggle signal
         self.play_pause_button.toggled.connect(self.toggle_play_pause)
-
-
 
         # Initialize video capture processor.
         if use_stream:
@@ -133,7 +139,6 @@ class VideoPlayer(QMainWindow):
         self.capture_thread.start()
         self.processing_process.start()
 
-    
     def toggle_play_pause(self, checked):
         """
         Toggle play/pause state of the video playback.
@@ -196,12 +201,14 @@ class VideoPlayer(QMainWindow):
         self.video_processor.release()
         self.processing_process.terminate()
         self.processing_process.join()
+        super().close()
         cv2.destroyAllWindows()
 
     def closeEvent(self, event):
         """
         Cleanly shutdown threads, processes, and release resources on close.
         """
+
         self.running = False
         self.running_flag.value = False
         self.video_processor.release()

@@ -40,6 +40,7 @@ def get_available_video_devices(max_devices: int = 5) -> list:
         if cap.isOpened():
             available.append(f"Device {i}")
         cap.release()
+    print(available)
     return available
 
 
