@@ -15,6 +15,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+      
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1-mesa libgl1-mesa-glx
 
       - name: Set up Python
         uses: actions/setup-python@v2
@@ -28,3 +33,4 @@ jobs:
 
       - name: Run tests
         run: pytest -ra
+
