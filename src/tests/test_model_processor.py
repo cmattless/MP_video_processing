@@ -60,7 +60,10 @@ class FakeTracker:
 
 
 def test_init_sets_parameters_and_components(monkeypatch):
-    """Model.__init__ should store params, build yolo_kwargs, and instantiate YOLO & DeepSort."""
+    """
+    Model.__init__ should store params, build yolo_kwargs,
+    and instantiate YOLO & DeepSort.
+    """
     fake_yolo = object()
 
     def fake_yolo_ctor(path):
@@ -100,12 +103,22 @@ def test_init_sets_parameters_and_components(monkeypatch):
 
 
 def test_process_frame_returns_empty_when_no_detections(monkeypatch):
-    """When YOLO returns no results and tracker has no tracks, process_frame should return []."""
+    """
+    When YOLO returns no results and tracker has no tracks,
+    process_frame should return [].
+    """
     # patch YOLO to a function returning empty list
-    monkeypatch.setattr(model_module, "YOLO", lambda path: (lambda frame, **kwargs: []))
+    monkeypatch.setattr(model_module, "YOLO", lambda path: (lambda frame,
+                                                            **kwargs: []
+                                                            ))
     # patch DeepSort to our FakeTracker
     fake_tracker = FakeTracker(10, 30, 1.0)
-    monkeypatch.setattr(model_module, "DeepSort", lambda *args, **kwargs: fake_tracker)
+    monkeypatch.setattr(
+        model_module,
+        "DeepSort",
+        lambda *args,
+        **kwargs: fake_tracker
+        )
 
     m = Model("dummy.pt")
     dummy_frame = np.zeros((100, 100, 3), dtype=np.uint8)
@@ -142,7 +155,12 @@ def test_process_frame_filters_detections_and_tracks(monkeypatch):
         FakeTrack([0, 0, 2, 2], track_id=42, confirmed=True),
         FakeTrack([5, 5, 3, 3], track_id=99, confirmed=False),
     ]
-    monkeypatch.setattr(model_module, "DeepSort", lambda *args, **kwargs: fake_tracker)
+    monkeypatch.setattr(
+        model_module,
+        "DeepSort",
+        lambda *args,
+        **kwargs: fake_tracker
+        )
 
     # Use a conf_threshold of 0.5 (filters out the 0.1 one)
     m = Model("dummy.pt", conf_threshold=0.5)
@@ -166,7 +184,10 @@ def test_torch_no_grad_context_applied(monkeypatch):
 
     monkeypatch.setattr(model_module, "YOLO", lambda path: fake_yolo)
     monkeypatch.setattr(
-        model_module, "DeepSort", lambda *args, **kwargs: FakeTracker(1, 1, 1.0)
+        model_module,
+        "DeepSort",
+        lambda *args,
+        **kwargs: FakeTracker(1, 1, 1.0)
     )
 
     m = Model("dummy.pt")

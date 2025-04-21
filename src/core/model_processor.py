@@ -2,6 +2,7 @@ from ultralytics import YOLO
 from deep_sort_realtime.deepsort_tracker import DeepSort
 import torch
 
+
 class Model:
     def __init__(
         self,
@@ -35,13 +36,15 @@ class Model:
 
     def process_frame(self, frame):
         """
-        Process a single frame: run detection with YOLO and track objects with DeepSORT.
+        Process a single frame: run detection with
+        YOLO and track objects with DeepSORT.
 
         Args:
             frame (np.ndarray): The input video frame.
 
         Returns:
-            list: A list of dictionaries containing bounding boxes ([x, y, w, h])
+            list: A list of dictionaries containing
+            bounding boxes ([x, y, w, h])
             and corresponding track IDs for confirmed tracks.
         """
         # run inference with class‐filtering baked in

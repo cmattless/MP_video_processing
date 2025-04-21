@@ -5,7 +5,11 @@ from pymediainfo import MediaInfo
 from src.core.metadata_processor import MetadataProcessor
 
 # Helper track dicts
-GENERAL_TRACK = {"track_type": "General", "title": "Test File", "duration": "1234"}
+GENERAL_TRACK = {
+    "track_type": "General",
+    "title": "Test File",
+    "duration": "1234"
+}
 VIDEO_TRACK = {
     "track_type": "Video",
     "format": "AVC",
@@ -53,7 +57,10 @@ def make_fake_parse(data, counter: dict = None):
 
 
 def test_get_metadata_all_tracks(monkeypatch):
-    """get_metadata should return JSON strings for General, Video, and Audio tracks."""
+    """
+    get_metadata should return JSON strings for
+    General, Video, and Audio tracks.
+    """
     data = {"tracks": [GENERAL_TRACK, VIDEO_TRACK, AUDIO_TRACK]}
     monkeypatch.setattr(MediaInfo, "parse", make_fake_parse(data))
 
@@ -97,7 +104,8 @@ def test_get_metadata_missing_tracks(monkeypatch, tracks, expected):
 
 def test_parse_called_only_once(monkeypatch):
     """
-    Calling get_metadata multiple times should only invoke MediaInfo.parse once.
+    Calling get_metadata multiple times
+    should only invoke MediaInfo.parse once.
     """
     data = {"tracks": [GENERAL_TRACK]}
     counter = {"n": 0}
