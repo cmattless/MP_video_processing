@@ -10,9 +10,11 @@ from PySide6.QtWidgets import (
     QLabel,
     QFrame,
     QWidget,
+    QInputDialog,
 )
 from PySide6.QtGui import QPixmap, QAction
 from PySide6.QtCore import Slot, Qt, QSettings
+from PySide6.QtMultimedia import QMediaDevices
 
 from core.video_utils.video_queue import VideoQueue
 from core.archive_processor import ArchiveProcessor
@@ -24,34 +26,15 @@ from gui.metadata_viewer import MetadataViewer
 from gui.settings_dialog import SettingsDialog
 
 
-def get_available_video_devices(max_devices: int = 5) -> list:
-    """
-    Scans device indices from 0 to max_devices - 1 to find available video devices.
-
-    Returns:
-        list: A list of strings representing available devices (e.g., "Device 0").
-    """
-    available = []
-    for i in range(max_devices):
-        # Using CAP_DSHOW reduces spurious error messages on Windows.
-        cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
-        # Allow a brief moment for initialization.
-        time.sleep(0.1)
-        if cap.isOpened():
-            available.append(f"Device {i}")
-        cap.release()
-    print(available)
-    return available
-
-
 class MainApp(QMainWindow):
-    def __init__(self, model_key: str):
+    def __init__(self, model_key: str, frame_skip: int = 3):
         super().__init__()
         self.setWindowTitle("DroneLink")
 
         self.archive_queue = VideoQueue()
 
         self.model_key = model_key
+        self.frame_skip = frame_skip
         self.model_path = SettingsDialog.MODEL_PATHS.get(model_key, None)
 
         # Top widget with logo and menu bar in one horizontal layout
@@ -157,21 +140,61 @@ class MainApp(QMainWindow):
             save_mode=False,
         )
 
+    def get_available_video_devices(max_devices: int = 5) -> list:
+        """
+        Scans device indices from 0 to max_devices - 1 to find available video devices.
+
+        Returns:
+            list: A list of strings representing available devices (e.g., "Device 0").
+        """
+        available = []
+        for i in range(max_devices):
+            # Using CAP_DSHOW reduces spurious error messages on Windows.
+            cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
+            # Allow a brief moment for initialization.
+            time.sleep(0.1)
+            if cap.isOpened():
+                available.append(f"Device {i}")
+            cap.release()
+        print(available)
+        return available
+
+    @Slot(str)
     def __connect_feed(self) -> None:
         """Connect to the video feed by letting the user select from available devices."""
-        devices = get_available_video_devices()
-        if not devices:
+        cams = QMediaDevices.videoInputs()
+        if not cams:
             self.dialog_handler.show_message(
                 "No Devices", "No video devices available."
             )
             return
 
-        self.dialog_handler.ask_item(
-            title="Select Video Device", message="Select a video device:", items=devices
+        # Build a list of human‑readable camera descriptions
+        names = [cam.description() for cam in cams]
+        chosen, ok = QInputDialog.getItem(
+            self,
+            "Select Camera",
+            "Camera:",
+            names,
+            0,
+            False,
         )
-        self.dialog_handler.signals.item_selection_response.connect(
-            self._on_live_stream_selected
+        if not ok:
+            return
+
+        # Map back to the integer index of the chosen camera
+        idx = names.index(chosen)
+
+        # Launch VideoPlayer exactly as before, with use_stream=True
+        self.video_player = VideoPlayer(
+            idx,
+            self.archive_queue,
+            self.model_path,
+            use_stream=True,
+            frame_skip=self.frame_skip,
         )
+        self.video_frame_layout.addWidget(self.video_player)
+        self.video_frame_layout.removeWidget(self.video_label)
 
     def __open_settings(self) -> None:
         """
@@ -181,6 +204,7 @@ class MainApp(QMainWindow):
         """
         settings_dialog = SettingsDialog(self)
         settings_dialog.settings_updated.connect(self.update_model_path)
+        settings_dialog.frame_skip_updated.connect(self.update_skipped_frames)
         if settings_dialog.exec():
             selected_key = settings_dialog.model_selection_combo.currentText()
             self.update_model_path(selected_key)
@@ -201,6 +225,16 @@ class MainApp(QMainWindow):
         else:
             self.open_action.setDisabled(True)
 
+    @Slot()
+    def update_skipped_frames(self, frame_skip: int) -> None:
+        """
+        Update the number of skipped frames for video processing.
+        This is a placeholder for future functionality.
+        """
+        QSettings("DroneTek", "DroneLink").setValue("frame_skip", self.frame_skip)
+        if hasattr(self, "video_player") and self.video_player is not None:
+            self.video_player.set_frame_skip(self.frame_skip)
+
     @Slot(str)
     def __on_file_path_selected(
         self,
@@ -217,7 +251,10 @@ class MainApp(QMainWindow):
         if file_path:
             self.meta_data = MetadataViewer(file_path)
             self.video_player = VideoPlayer(
-                file_path, self.archive_queue, self.model_path
+                file_path,
+                self.archive_queue,
+                self.model_path,
+                frame_skip=self.frame_skip,
             )
             self.video_frame_layout.addWidget(self.video_player)
             self.video_frame_layout.removeWidget(self.video_label)
@@ -226,6 +263,19 @@ class MainApp(QMainWindow):
             self.metadata_frame_layout.removeWidget(self.meta_label)
         else:
             print("No file selected")
+
+    @Slot()
+    def _on_video_closed(self):
+        """
+        Remove the metadata viewer and restore the default label
+        when the video is closed.
+        """
+        if hasattr(self, "meta_data") and self.meta_data:
+            self.metadata_frame_layout.removeWidget(self.meta_data)
+            self.meta_data.deleteLater()
+            self.meta_data = None
+        # put the placeholder back
+        self.metadata_frame_layout.addWidget(self.meta_label)
 
     @Slot(str)
     def _on_live_stream_selected(self, selection: str) -> None:
@@ -304,7 +354,8 @@ if __name__ == "__main__":
     settings = QSettings("DroneTek", "DroneLink")
     # Retrieve the stored model key; default to "Default" if not set.
     model_key = settings.value("model", "Default")
-    main_window = MainApp(model_key)
+    frame_skip = settings.value("frame_skip", 3)
+    main_window = MainApp(model_key, frame_skip)
     main_window.showMaximized()
     main_window.show()
     sys.exit(app.exec())
