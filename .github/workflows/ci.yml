@@ -59,12 +59,11 @@ jobs:
       - name: Upload test reports
         uses: actions/upload-artifact@v4
         with:
-          name: pytest-reports
-          path: |
-            reports/
-            coverage_html/
+          name: pytest-reports-${{ matrix.python-version }}
+          path: reports/
 
       - name: Upload coverage to Codecov
+        if: matrix.python-version == '3.12'
         uses: codecov/codecov-action@v3
         with:
           files: coverage.xml
