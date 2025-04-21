@@ -5,7 +5,7 @@ import multiprocessing as mp
 import time
 from PySide6.QtWidgets import QMainWindow, QLabel, QVBoxLayout, QWidget, QPushButton
 from PySide6.QtGui import QImage, QPixmap
-from PySide6.QtCore import QTimer, Qt
+from PySide6.QtCore import QTimer, Qt, Signal
 
 from core.video_processor import VideoProcessor
 from core.stream_processor import StreamProcessor
@@ -59,6 +59,8 @@ def process_frames_worker(frame_queue, processed_queue, model_path, running_flag
 
 
 class VideoPlayer(QMainWindow):
+    video_closed = Signal()
+
     def __init__(
         self,
         video_source,
@@ -66,6 +68,7 @@ class VideoPlayer(QMainWindow):
         model_path: str,
         use_stream: bool = False,
         queue_size=100,
+        frame_skip=3,
     ):
         """
         Initializes the VideoPlayer GUI.
@@ -77,6 +80,8 @@ class VideoPlayer(QMainWindow):
             queue_size (int, optional): Maximum size of the inter-process queues.
         """
         super().__init__()
+        self.model_path = model_path
+        self.frame_skip = frame_skip
         self.running = True
         self.setAttribute(Qt.WA_DeleteOnClose, True)
 
@@ -124,8 +129,9 @@ class VideoPlayer(QMainWindow):
             args=(
                 self.frame_queue,
                 self.processed_queue,
-                model_path,
+                self.model_path,
                 self.running_flag,
+                self.frame_skip,
             ),
             daemon=True,
         )
@@ -192,6 +198,31 @@ class VideoPlayer(QMainWindow):
         q_image = QImage(frame_rgb.data, w, h, bytes_per_line, QImage.Format_RGB888)
         self.video_label.setPixmap(QPixmap.fromImage(q_image))
 
+    def set_frame_skip(self, frame_skip: int):
+        """
+        Change how many frames to skip: terminate the old process
+        and start a new one with the updated skip-count.
+        """
+        self.frame_skip = frame_skip
+
+        self.running_flag.value = False
+        self.processing_process.terminate()
+        self.processing_process.join()
+
+        self.running_flag = mp.Value("b", True)
+        self.processing_process = mp.Process(
+            target=process_frames_worker,
+            args=(
+                self.frame_queue,
+                self.processed_queue,
+                self.model_path,
+                self.running_flag,
+                self.frame_skip,
+            ),
+            daemon=True,
+        )
+        self.processing_process.start()
+
     def close(self):
         """
         Cleanly shutdown threads, processes, and release resources.
@@ -201,14 +232,14 @@ class VideoPlayer(QMainWindow):
         self.video_processor.release()
         self.processing_process.terminate()
         self.processing_process.join()
-        super().close()
         cv2.destroyAllWindows()
+        super().close()
 
     def closeEvent(self, event):
         """
         Cleanly shutdown threads, processes, and release resources on close.
         """
-
+        self.video_closed.emit()
         self.running = False
         self.running_flag.value = False
         self.video_processor.release()
