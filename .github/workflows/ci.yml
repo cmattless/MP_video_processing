@@ -68,7 +68,8 @@ jobs:
         with:
           files: coverage.xml
 
-      - name: Security scan with safety
-        run: |
-          pip install safety
-          safety check --full-report
+      # Need account for this, expired
+      # - name: Security scan with safety
+      #   run: |
+      #     pip install safety
+      #     safety check --full-report
