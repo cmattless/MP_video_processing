@@ -4,3 +4,5 @@
 /data/*
 .coverage
 /htmlcov
+build
+dist
