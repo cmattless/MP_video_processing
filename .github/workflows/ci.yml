@@ -4,11 +4,12 @@ on:
   push:
     branches:
       - main
-      - 5-test-suite
+      - develop
+      - 6-binary-creation
   pull_request:
     branches:
       - main
-      - 5-test-suite
+      - develop
 
 jobs:
   test:
@@ -68,8 +69,44 @@ jobs:
         with:
           files: coverage.xml
 
-      # Need account for this, expired
-      # - name: Security scan with safety
-      #   run: |
-      #     pip install safety
-      #     safety check --full-report
+  build-windows:
+    runs-on: windows-latest
+    outputs:
+      windows-artifact: dronelink-windows.exe
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        if: github.ref == 'refs/heads/main'
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      - name: Install PyInstaller
+        run: pip install pyinstaller
+      - name: Build Windows binary
+        run: pyinstaller dronelink.spec
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: dronelink-windows
+          path: dist/dronelink.exe
+
+  build-linux:
+    runs-on: ubuntu-latest
+    outputs:
+      linux-artifact: dronelink-linux
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        if: github.ref == 'refs/heads/main'
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      - name: Install PyInstaller
+        run: pip install pyinstaller
+      - name: Build Linux binary
+        run: pyinstaller dronelink.spec
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: dronelink-linux
+          path: dist/dronelink
