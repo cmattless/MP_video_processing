@@ -89,7 +89,10 @@ class MainApp(QMainWindow):
 
         # Left frame for video footage
         self.video_frame = QFrame()
-        self.video_frame.setStyleSheet("background-color: #2e2e2e; border-radius: 8px;")
+        self.video_frame.setStyleSheet(
+            "background-color: #2e2e2e;"
+            "border-radius: 8px;"
+            )
         self.video_frame_layout = QVBoxLayout(self.video_frame)
         self.video_label = QLabel(f"Model Path: {self.model_path}")
         self.video_label.setAlignment(Qt.AlignCenter)
@@ -120,7 +123,8 @@ class MainApp(QMainWindow):
             self.dialog_handler.show_message("No Video", "No video to export.")
             return
 
-        # Use start_processors=False so that the __on_file_path_selected slot will return immediately.
+        # Use start_processors=False so that the __on_file_path_selected
+        # slot will return immediately.
         self.dialog_handler.request_file_path(
             title="Export Video",
             file_filter="Video Files (*.mp4);;All Files (*.*)",
@@ -142,10 +146,12 @@ class MainApp(QMainWindow):
 
     def get_available_video_devices(max_devices: int = 5) -> list:
         """
-        Scans device indices from 0 to max_devices - 1 to find available video devices.
+        Scans device indices from 0 to max_devices - 1
+        to find available video devices.
 
         Returns:
-            list: A list of strings representing available devices (e.g., "Device 0").
+            list: A list of strings representing available
+            devices (e.g., "Device 0").
         """
         available = []
         for i in range(max_devices):
@@ -161,7 +167,8 @@ class MainApp(QMainWindow):
 
     @Slot(str)
     def __connect_feed(self) -> None:
-        """Connect to the video feed by letting the user select from available devices."""
+        """Connect to the video feed by letting the user select
+        from available devices."""
         cams = QMediaDevices.videoInputs()
         if not cams:
             self.dialog_handler.show_message(
@@ -229,9 +236,11 @@ class MainApp(QMainWindow):
     def update_skipped_frames(self, frame_skip: int) -> None:
         """
         Update the number of skipped frames for video processing.
-        This is a placeholder for future functionality.
         """
-        QSettings("DroneTek", "DroneLink").setValue("frame_skip", self.frame_skip)
+        QSettings("DroneTek", "DroneLink").setValue(
+            "frame_skip",
+            self.frame_skip
+            )
         if hasattr(self, "video_player") and self.video_player is not None:
             self.video_player.set_frame_skip(self.frame_skip)
 
@@ -289,7 +298,11 @@ class MainApp(QMainWindow):
         device_index = int(selection.split()[-1])
 
         # self.meta_data = MetadataViewer("Live Stream")
-        self.video_player = VideoPlayer(device_index, self.model_path, use_stream=True)
+        self.video_player = VideoPlayer(
+            device_index,
+            self.model_path,
+            use_stream=True
+            )
         self.video_frame_layout.addWidget(self.video_player)
         self.video_frame_layout.removeWidget(self.video_label)
 
@@ -300,10 +313,14 @@ class MainApp(QMainWindow):
     def _on_export_path_selected(self, file_path: str) -> None:
         """
         Handle the file path selected by the user for export.
-        Instantiate and display an ArchiveProcessor if a valid file path is returned.
+        Instantiate and display an ArchiveProcessor
+        if a valid file path is returned.
         """
         if not file_path:
-            self.dialog_handler.show_message("Export Cancelled", "No file selected.")
+            self.dialog_handler.show_message(
+                "Export Cancelled",
+                "No file selected."
+                )
             return
 
         # Close the video player if it exists to ensure resources are released.
@@ -318,7 +335,7 @@ class MainApp(QMainWindow):
             return
 
         # Create ArchiveProcessor and write frames
-        archive_processor = ArchiveProcessor(file_path, 30, (640, 480))
+        archive_processor = ArchiveProcessor(file_path, 30, (960, 640))
 
         frames_exported = 0
         while not self.archive_queue.is_empty():
@@ -327,7 +344,7 @@ class MainApp(QMainWindow):
                 # Convert from RGB to BGR if needed.
                 frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
                 # Resize frame to match the output video frame size.
-                frame = cv2.resize(frame, (640, 480))
+                frame = cv2.resize(frame, (960, 640))
                 archive_processor.write_frame(frame)
                 frames_exported += 1
 
@@ -336,7 +353,7 @@ class MainApp(QMainWindow):
         if frames_exported > 0:
             self.dialog_handler.show_message(
                 "Export Complete",
-                f"Video exported successfully. Exported {frames_exported} frames.",
+                f"Export complete: {frames_exported} frames exported.",
             )
         else:
             self.dialog_handler.show_message(

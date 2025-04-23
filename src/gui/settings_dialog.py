@@ -17,7 +17,11 @@ class SettingsDialog(QDialog):
     # search assets folder for model files and return the paths
     assets = os.listdir(
         os.path.abspath(
-            os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "assets")
+            os.path.join(
+                os.path.dirname(os.path.realpath(__file__)),
+                "..",
+                "assets"
+                )
         )
     )
     assets = [asset for asset in assets if asset.endswith(".pt")]
@@ -25,7 +29,10 @@ class SettingsDialog(QDialog):
     MODEL_PATHS = {
         asset: os.path.abspath(
             os.path.join(
-                os.path.dirname(os.path.realpath(__file__)), "..", "assets", asset
+                os.path.dirname(os.path.realpath(__file__)),
+                "..",
+                "assets",
+                asset
             )
         )
         for asset in assets
