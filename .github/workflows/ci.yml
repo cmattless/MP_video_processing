@@ -85,7 +85,7 @@ jobs:
       - name: Build Windows binary
         run: pyinstaller dronelink.spec
       - name: Upload Windows artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: dronelink-windows
           path: dist/dronelink.exe
@@ -106,7 +106,7 @@ jobs:
       - name: Build Linux binary
         run: pyinstaller dronelink.spec
       - name: Upload Linux artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: dronelink-linux
           path: dist/dronelink
