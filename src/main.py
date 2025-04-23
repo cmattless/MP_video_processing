@@ -335,7 +335,7 @@ class MainApp(QMainWindow):
             return
 
         # Create ArchiveProcessor and write frames
-        archive_processor = ArchiveProcessor(file_path, 30, (640, 480))
+        archive_processor = ArchiveProcessor(file_path, 30, (960, 640))
 
         frames_exported = 0
         while not self.archive_queue.is_empty():
@@ -344,7 +344,7 @@ class MainApp(QMainWindow):
                 # Convert from RGB to BGR if needed.
                 frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
                 # Resize frame to match the output video frame size.
-                frame = cv2.resize(frame, (640, 480))
+                frame = cv2.resize(frame, (960, 640))
                 archive_processor.write_frame(frame)
                 frames_exported += 1
 

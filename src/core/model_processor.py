@@ -11,7 +11,7 @@ class Model:
         max_age: int = 10,
         nn_budget: int = 30,
         nms_max_overlap: float = 1.0,
-        input_size: int = 640,
+        input_size: int = 960,
     ):
         """
         Initializes the YOLO model (filtered to only class 0 == 'person')
