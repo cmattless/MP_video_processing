@@ -26,7 +26,6 @@ a = Analysis(
         'src.gui.metadata_viewer',
         'src.gui.settings_dialog',
         'src.gui.video_player'
-     
     ],
     hookspath=[],
     runtime_hooks=[],
@@ -52,5 +51,5 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=True,
+    console=False,
 )

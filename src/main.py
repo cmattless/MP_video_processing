@@ -44,7 +44,7 @@ class MainApp(QMainWindow):
 
         # LOGO
         logo_label = QLabel()
-        logo_label.setPixmap(QPixmap("./src/assets/DroneLink_light.png"))
+        logo_label.setPixmap(QPixmap("./assets/DroneLink_light.png"))
         logo_label.setScaledContents(True)
         logo_label.setFixedHeight(15)
         logo_label.setFixedWidth(75)
@@ -90,9 +90,8 @@ class MainApp(QMainWindow):
         # Left frame for video footage
         self.video_frame = QFrame()
         self.video_frame.setStyleSheet(
-            "background-color: #2e2e2e;"
-            "border-radius: 8px;"
-            )
+            "background-color: #2e2e2e;" "border-radius: 8px;"
+        )
         self.video_frame_layout = QVBoxLayout(self.video_frame)
         self.video_label = QLabel(f"Model Path: {self.model_path}")
         self.video_label.setAlignment(Qt.AlignCenter)
@@ -237,10 +236,7 @@ class MainApp(QMainWindow):
         """
         Update the number of skipped frames for video processing.
         """
-        QSettings("DroneTek", "DroneLink").setValue(
-            "frame_skip",
-            self.frame_skip
-            )
+        QSettings("DroneTek", "DroneLink").setValue("frame_skip", self.frame_skip)
         if hasattr(self, "video_player") and self.video_player is not None:
             self.video_player.set_frame_skip(self.frame_skip)
 
@@ -279,6 +275,7 @@ class MainApp(QMainWindow):
         Remove the metadata viewer and restore the default label
         when the video is closed.
         """
+        self.meta_data.close()
         if hasattr(self, "meta_data") and self.meta_data:
             self.metadata_frame_layout.removeWidget(self.meta_data)
             self.meta_data.deleteLater()
@@ -298,11 +295,7 @@ class MainApp(QMainWindow):
         device_index = int(selection.split()[-1])
 
         # self.meta_data = MetadataViewer("Live Stream")
-        self.video_player = VideoPlayer(
-            device_index,
-            self.model_path,
-            use_stream=True
-            )
+        self.video_player = VideoPlayer(device_index, self.model_path, use_stream=True)
         self.video_frame_layout.addWidget(self.video_player)
         self.video_frame_layout.removeWidget(self.video_label)
 
@@ -317,10 +310,7 @@ class MainApp(QMainWindow):
         if a valid file path is returned.
         """
         if not file_path:
-            self.dialog_handler.show_message(
-                "Export Cancelled",
-                "No file selected."
-                )
+            self.dialog_handler.show_message("Export Cancelled", "No file selected.")
             return
 
         # Close the video player if it exists to ensure resources are released.

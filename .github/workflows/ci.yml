@@ -4,12 +4,9 @@ on:
   push:
     branches:
       - main
-      - develop
-      - 6-binary-creation
   pull_request:
     branches:
       - main
-      - develop
 
 jobs:
   test:

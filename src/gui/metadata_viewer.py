@@ -29,3 +29,6 @@ class MetadataViewer(QMainWindow):
         self.layout.addWidget(self.general_label)
         self.layout.addWidget(self.video_label)
         self.layout.addWidget(self.audio_label)
+
+    def close(self):
+        return super().close()

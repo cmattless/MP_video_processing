@@ -3,13 +3,7 @@ import queue
 import threading
 import multiprocessing as mp
 
-from PySide6.QtWidgets import (
-    QMainWindow,
-    QLabel,
-    QVBoxLayout,
-    QWidget,
-    QPushButton
-)
+from PySide6.QtWidgets import QMainWindow, QLabel, QVBoxLayout, QWidget, QPushButton
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtCore import QTimer, Qt, Signal
 
@@ -30,24 +24,12 @@ def draw_object_contours(img, tracked_objects):
         cv2.rectangle(img, (x, y), (x + w, y + h), (0, 0, 255), 2)
         label = f"ID {track['track_id']}"
         cv2.putText(
-            img,
-            label,
-            (x, y - 10),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.5,
-            (0, 0, 255),
-            1
+            img, label, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1
         )
     return img
 
 
-def process_frames_worker(
-        frame_queue,
-        processed_queue,
-        model_path,
-        running_flag,
-        n=3
-        ):
+def process_frames_worker(frame_queue, processed_queue, model_path, running_flag, n=3):
     """
     Process frames in a separate process. The worker continuously pulls frames
     from frame_queue, processes them using the model, draws contours, and puts
@@ -84,7 +66,7 @@ class VideoPlayer(QMainWindow):
         archive_queue,
         model_path: str,
         use_stream: bool = False,
-        queue_size=100,
+        queue_size=1,
         frame_skip=3,
     ):
         """
@@ -140,10 +122,7 @@ class VideoPlayer(QMainWindow):
         self.running_flag = mp.Value("b", True)
 
         # Start capture thread.
-        self.capture_thread = threading.Thread(
-            target=self.capture_frames,
-            daemon=True
-            )
+        self.capture_thread = threading.Thread(target=self.capture_frames, daemon=True)
         # Start the frame processing process.
         self.processing_process = mp.Process(
             target=process_frames_worker,
@@ -216,13 +195,7 @@ class VideoPlayer(QMainWindow):
 
         h, w, ch = frame_rgb.shape
         bytes_per_line = ch * w
-        q_image = QImage(
-            frame_rgb.data,
-            w,
-            h,
-            bytes_per_line,
-            QImage.Format_RGB888
-            )
+        q_image = QImage(frame_rgb.data, w, h, bytes_per_line, QImage.Format_RGB888)
         self.video_label.setPixmap(QPixmap.fromImage(q_image))
 
     def set_frame_skip(self, frame_skip: int):

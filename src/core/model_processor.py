@@ -11,7 +11,7 @@ class Model:
         max_age: int = 10,
         nn_budget: int = 30,
         nms_max_overlap: float = 1.0,
-        input_size: int = 960,
+        input_size: int = 640,
     ):
         """
         Initializes the YOLO model (filtered to only class 0 == 'person')
@@ -62,9 +62,7 @@ class Model:
                 w, h = x2 - x1, y2 - y1
                 if w <= 0 or h <= 0:
                     continue
-                detections.append(
-                    ([x1, y1, w, h], float(conf), 0)
-                )
+                detections.append(([x1, y1, w, h], float(conf), 0))
 
         tracks = self.tracker.update_tracks(detections, frame=frame)
         return [
