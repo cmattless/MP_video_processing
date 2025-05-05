@@ -2,15 +2,14 @@ import cv2
 import queue
 import threading
 import multiprocessing as mp
-import time
-from PySide6.QtWidgets import QMainWindow, QLabel, QVBoxLayout, QWidget
+
+from PySide6.QtWidgets import QMainWindow, QLabel, QVBoxLayout, QWidget, QPushButton
 from PySide6.QtGui import QImage, QPixmap
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QTimer, Qt, Signal
 
 from core.video_processor import VideoProcessor
 from core.stream_processor import StreamProcessor
 from core.model_processor import Model
-from src.core.video_utils.video_queue import VideoQueue
 
 
 def draw_object_contours(img, tracked_objects):
@@ -59,13 +58,16 @@ def process_frames_worker(frame_queue, processed_queue, model_path, running_flag
 
 
 class VideoPlayer(QMainWindow):
+    video_closed = Signal()
+
     def __init__(
         self,
         video_source,
         archive_queue,
         model_path: str,
         use_stream: bool = False,
-        queue_size=100,
+        queue_size=1,
+        frame_skip=3,
     ):
         """
         Initializes the VideoPlayer GUI.
@@ -74,10 +76,14 @@ class VideoPlayer(QMainWindow):
             video_source (str or int): Video file path or stream source.
             model_path (str): Path to the model weights.
             use_stream (bool, optional): Use live stream processing if True.
-            queue_size (int, optional): Maximum size of the inter-process queues.
+            queue_size (int, optional): Maximum size of the
+            inter-process queues.
         """
         super().__init__()
+        self.model_path = model_path
+        self.frame_skip = frame_skip
         self.running = True
+        self.setAttribute(Qt.WA_DeleteOnClose, True)
 
         # Set up GUI components.
         self.central_widget = QWidget()
@@ -86,6 +92,22 @@ class VideoPlayer(QMainWindow):
         self.video_label = QLabel()
         self.video_label.setScaledContents(True)
         self.layout.addWidget(self.video_label)
+
+        self.close_button = QPushButton("x")
+        self.close_button.setFixedSize(30, 30)
+        self.close_button.setToolTip("Close")
+        self.close_button.setStyleSheet("background-color: red; color: white;")
+        self.close_button.clicked.connect(self.close)
+        self.layout.addWidget(self.close_button)
+
+        self.play_pause_button = QPushButton("Pause")
+        self.play_pause_button.setCheckable(True)
+        self.play_pause_button.setChecked(False)
+        self.layout.addWidget(self.play_pause_button)
+        # Hide button when streaming
+        self.play_pause_button.setVisible(not use_stream)
+        # Connect toggle signal
+        self.play_pause_button.toggled.connect(self.toggle_play_pause)
 
         # Initialize video capture processor.
         if use_stream:
@@ -107,8 +129,9 @@ class VideoPlayer(QMainWindow):
             args=(
                 self.frame_queue,
                 self.processed_queue,
-                model_path,
+                self.model_path,
                 self.running_flag,
+                self.frame_skip,
             ),
             daemon=True,
         )
@@ -122,11 +145,23 @@ class VideoPlayer(QMainWindow):
         self.capture_thread.start()
         self.processing_process.start()
 
+    def toggle_play_pause(self, checked):
+        """
+        Toggle play/pause state of the video playback.
+        """
+        if checked:
+            # Paused: stop updating frames
+            self.timer.stop()
+            self.play_pause_button.setText("Play")
+        else:
+            # Playing: resume frame updates
+            self.timer.start(33)
+            self.play_pause_button.setText("Pause")
+
     def capture_frames(self):
         """
         Continuously capture frames from the video source and enqueue.
         """
-
         while self.running:
             frame = self.video_processor.get_frame()
             if frame is None:
@@ -163,6 +198,31 @@ class VideoPlayer(QMainWindow):
         q_image = QImage(frame_rgb.data, w, h, bytes_per_line, QImage.Format_RGB888)
         self.video_label.setPixmap(QPixmap.fromImage(q_image))
 
+    def set_frame_skip(self, frame_skip: int):
+        """
+        Change how many frames to skip: terminate the old process
+        and start a new one with the updated skip-count.
+        """
+        self.frame_skip = frame_skip
+
+        self.running_flag.value = False
+        self.processing_process.terminate()
+        self.processing_process.join()
+
+        self.running_flag = mp.Value("b", True)
+        self.processing_process = mp.Process(
+            target=process_frames_worker,
+            args=(
+                self.frame_queue,
+                self.processed_queue,
+                self.model_path,
+                self.running_flag,
+                self.frame_skip,
+            ),
+            daemon=True,
+        )
+        self.processing_process.start()
+
     def close(self):
         """
         Cleanly shutdown threads, processes, and release resources.
@@ -173,11 +233,13 @@ class VideoPlayer(QMainWindow):
         self.processing_process.terminate()
         self.processing_process.join()
         cv2.destroyAllWindows()
+        super().close()
 
     def closeEvent(self, event):
         """
         Cleanly shutdown threads, processes, and release resources on close.
         """
+        self.video_closed.emit()
         self.running = False
         self.running_flag.value = False
         self.video_processor.release()

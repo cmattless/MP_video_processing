@@ -1,12 +1,11 @@
 import sys
 import os
+from src.main import MainApp
 
 current_dir = os.path.dirname(os.path.realpath(__file__))
 src_path = os.path.join(current_dir, "src")
 
 sys.path.insert(0, src_path)
-
-from main import MainApp
 
 if __name__ == "__main__":
     from PySide6.QtWidgets import QApplication

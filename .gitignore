@@ -2,3 +2,7 @@
 *.pyc
 *.pyo
 /data/*
+.coverage
+/htmlcov
+build
+dist

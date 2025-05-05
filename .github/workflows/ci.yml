@@ -11,19 +11,99 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
+
+      - name: Cache pip
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
 
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
+          python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
         run: |
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest pytest-qt
 
-      - name: Run tests
-        run: xvfb-run pytest
+      - name: Lint with flake8
+        continue-on-error: true
+        run: |
+          pip install flake8
+          flake8 src --max-line-length=120
+
+      - name: Run tests with coverage
+        run: |
+          mkdir -p reports coverage_html
+          pip install pytest pytest-cov
+          pytest --maxfail=1 --disable-warnings \
+                 --junitxml=reports/junit.xml \
+                 --cov=src \
+                 --cov-report=xml:coverage.xml \
+                 --cov-report=html:coverage_html \
+                 --cov-report=term-missing
+
+      - name: Upload test reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-reports-${{ matrix.python-version }}
+          path: reports/
+
+      - name: Upload coverage to Codecov
+        if: matrix.python-version == '3.12'
+        uses: codecov/codecov-action@v3
+        with:
+          files: coverage.xml
+
+  build-windows:
+    runs-on: windows-latest
+    outputs:
+      windows-artifact: dronelink-windows.exe
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        if: github.ref == 'refs/heads/main'
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      - name: Install PyInstaller
+        run: pip install pyinstaller
+      - name: Build Windows binary
+        run: pyinstaller dronelink.spec
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dronelink-windows
+          path: dist/dronelink.exe
+
+  build-linux:
+    runs-on: ubuntu-latest
+    outputs:
+      linux-artifact: dronelink-linux
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        if: github.ref == 'refs/heads/main'
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      - name: Install PyInstaller
+        run: pip install pyinstaller
+      - name: Build Linux binary
+        run: pyinstaller dronelink.spec
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dronelink-linux
+          path: dist/dronelink
